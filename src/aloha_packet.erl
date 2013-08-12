@@ -126,15 +126,15 @@ encode(#ip{version=Version, ihl=IHL, tos=TOS, total_length=_TotalLength,
       Src:4/bytes, Dst:4/bytes, Options/bytes, 0:OptPadLen/unit:8,
       Rest/bytes>>;
 encode(#arp{hrd=Hrd, pro=Pro, hln=Hln, pln=Pln, op=Op,
-       sha=Sha, spa=Spa, tha=Tha, tpa=Tpa}, _Stack, <<>>) ->
+       sha=Sha, spa=Spa, tha=Tha, tpa=Tpa}, _Stack, Rest) ->
     ProInt = to_int(ethertype, Pro),
     <<Hrd:16, ProInt:16, Hln:8, Pln:8, Op:16,
-      Sha:Hln/bytes, Spa:Pln/bytes, Tha:Hln/bytes, Tpa:Pln/bytes>>;
+      Sha:Hln/bytes, Spa:Pln/bytes, Tha:Hln/bytes, Tpa:Pln/bytes, Rest/bytes>>;
 encode(#icmp{type=Type, code=Code, checksum=_Checksum, data=Data},
-       _Stack, <<>>) ->
+       _Stack, Rest) ->
     Pkt = <<Type:8, Code:8, 0:16, Data/bytes>>,
     Checksum = checksum(Pkt),
-    <<Type:8, Code:8, Checksum:16, Data/bytes>>;
+    <<Type:8, Code:8, Checksum:16, Data/bytes, Rest/bytes>>;
 encode(#tcp{src_port=SrcPort, dst_port=DstPort,
             seqno=SeqNo, ackno=AckNo, data_offset=_DataOffset,
             urg=URG, ack=ACK, psh=PSH, rst=RST, syn=SYN, fin=FIN,
