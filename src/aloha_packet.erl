@@ -153,6 +153,8 @@ encode(#tcp{src_port=SrcPort, dst_port=DstPort,
       DataOffset:4, 0:6, URG:1, ACK:1, PSH:1, RST:1, SYN:1, FIN:1, Window:16,
       Checksum:16, UrgentPointer:16, Options:OptLen/bytes, 0:OptPadLen/unit:8,
       Rest/bytes>>;
+encode({bin, Bin}, _Stack, Rest) ->
+    <<Bin/bytes, Rest/bytes>>;
 encode(Bin, _Stack, Rest) when is_binary(Bin) ->
     <<Bin/bytes, Rest/bytes>>.
 
