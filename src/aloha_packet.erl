@@ -69,7 +69,7 @@ decode(ip, Data) ->
      checksum=Checksum, src=Src, dst=Dst, options=Options}, Protocol, Rest2};
 decode(icmp, Data) ->
     <<Type:8, Code:8, Checksum:16, Rest/bytes>> = Data,
-    {#icmp{type=Type, code=Code, checksum=Checksum, data=Rest}, unknown, <<>>};
+    {#icmp{type=Type, code=Code, checksum=Checksum, data=Rest}, bin, <<>>};
 decode(ipv6, Data) ->
     <<Version:4, TrafficClass:8, FlowLabel:20,
       PayloadLength:16, NextHeaderInt:8, HopLimit:8,
@@ -94,14 +94,14 @@ decode(tcp, Data) ->
                window=Window, checksum=Checksum, urgent_pointer=UrgentPointer,
                options=Options}, bin, Rest2};
 decode(Type, Data) ->
-    {{Type, Data}, unknown, <<>>}.
+    {{Type, Data}, bin, <<>>}.
 
 decode_arp(Data) ->
     <<Hrd:16, Pro:16, Hln:8, Pln:8, Op:16, Rest/bytes>> = Data,
     <<Sha:Hln/bytes, Spa:Pln/bytes, Tha:Hln/bytes, Tpa:Pln/bytes,
       Rest2/bytes>> = Rest,
     {#arp{hrd=Hrd, pro=to_atom(ethertype, Pro), hln=Hln, pln=Pln, op=Op,
-      sha=Sha, spa=Spa, tha=Tha, tpa=Tpa}, unknown, Rest2}.
+      sha=Sha, spa=Spa, tha=Tha, tpa=Tpa}, bin, Rest2}.
 
 encode(#ether{dst=Dst, src=Src, type=Type}, _Stack, Rest) ->
     TypeInt = to_int(ethertype, Type),
