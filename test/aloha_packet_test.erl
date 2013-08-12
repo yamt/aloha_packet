@@ -36,8 +36,31 @@ tcp_term() ->
         {tcp,8080,53984,1,3027167676,5,0,1,0,0,0,0,3000,13889,0,<<>>},
         {bin,<<"HTTP/1.1 200 OK\r\nconnection: keep-alive\r\nserver: Cowboy\r\ndate: Mon, 12 Aug 2013 14:40:23 GMT\r\ncontent-length: 7\r\n\r\naloha!\n">>}].
 
+arp_bin() ->
+    <<242,11,164,149,235,12,0,3,71,140,161,179,8,6,0,1,8,0,6,4,0,2,0,3,71,140,161,179,192,0,2,1,242,11,164,149,235,12,192,0,2,9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0>>.
+
+arp_term() ->
+    [{ether,<<242,11,164,149,235,12>>,<<0,3,71,140,161,179>>,arp},
+     {arp,1,ip,6,4,2,
+      <<0,3,71,140,161,179>>, <<192,0,2,1>>,
+      <<242,11,164,149,235,12>>, <<192,0,2,9>>},
+     {bin,<<0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0>>}].
+
 tcp_decode_test() ->
     ?assertEqual(tcp_term(), aloha_packet:decode_packet(tcp_bin())).
 
 tcp_encode_test() ->
     ?assertEqual(tcp_bin(), aloha_packet:encode_packet(tcp_term())).
+
+arp_decode_test() ->
+    io:format("~p~n", [aloha_packet:decode_packet(arp_bin())]),
+    ?assertEqual(arp_term(), aloha_packet:decode_packet(arp_bin())).
+
+arp_encode_test() ->
+    ?assertEqual(arp_bin(), aloha_packet:encode_packet(arp_term())).
+
+ether_pad_test() ->
+    ?assertEqual(arp_bin(), aloha_packet:encode_packet(remove_pad(arp_term()))).
+
+remove_pad(Packet) ->
+    lists:keydelete(bin, 1, Packet).
