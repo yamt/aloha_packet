@@ -42,8 +42,8 @@ decode_packet(Data) ->
 decode_packet(_Type, <<>>, Acc) ->
     lists:reverse(Acc);
 decode_packet(Type, Data, Acc) ->
-    {RecType, Rec, NextType, Rest} = decode(Type, Data),
-    decode_packet(NextType, Rest, [{RecType, Rec}|Acc]).
+    {Rec, NextType, Rest} = decode(Type, Data),
+    decode_packet(NextType, Rest, [Rec|Acc]).
 
 decode(ether, Data) ->
     <<Dst:6/bytes, Src:6/bytes, TypeInt:16, Rest/bytes>> = Data,
