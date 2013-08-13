@@ -35,3 +35,8 @@
                   {udp, 17},
                   {icmpv6, 58}]}).
 
+-enum({arp_op, [{request, 1},
+                {reply, 2}]}).
+
+-enum({icmp_type, [{echo_reply, 0},
+                   {echo_request, 8}]}).

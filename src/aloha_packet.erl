@@ -79,7 +79,8 @@ decode(icmp, Data, _Stack) ->
         0 -> good;
         _ -> bad
     end,
-    {#icmp{type=Type, code=Code, checksum=Checksum, data=Rest}, bin, <<>>};
+    {#icmp{type=to_atom(icmp_type, Type), code=Code, checksum=Checksum,
+           data=Rest}, bin, <<>>};
 decode(ipv6, Data, _Stack) ->
     <<Version:4, TrafficClass:8, FlowLabel:20,
       PayloadLength:16, NextHeaderInt:8, HopLimit:8,
@@ -120,8 +121,9 @@ decode_arp(Data) ->
     <<Hrd:16, Pro:16, Hln:8, Pln:8, Op:16, Rest/bytes>> = Data,
     <<Sha:Hln/bytes, Spa:Pln/bytes, Tha:Hln/bytes, Tpa:Pln/bytes,
       Rest2/bytes>> = Rest,
-    {#arp{hrd=Hrd, pro=to_atom(ethertype, Pro), hln=Hln, pln=Pln, op=Op,
-      sha=Sha, spa=Spa, tha=Tha, tpa=Tpa}, bin, Rest2}.
+    {#arp{hrd=Hrd, pro=to_atom(ethertype, Pro), hln=Hln, pln=Pln,
+          op=to_atom(arp_op, Op), sha=Sha, spa=Spa, tha=Tha, tpa=Tpa},
+     bin, Rest2}.
 
 encode(#ether{dst=Dst, src=Src, type=Type}, _Stack, Rest) ->
     TypeInt = to_int(ethertype, Type),
@@ -148,13 +150,15 @@ encode(#ip{version=Version, ihl=IHL, tos=TOS, total_length=_TotalLength,
 encode(#arp{hrd=Hrd, pro=Pro, hln=Hln, pln=Pln, op=Op,
        sha=Sha, spa=Spa, tha=Tha, tpa=Tpa}, _Stack, Rest) ->
     ProInt = to_int(ethertype, Pro),
-    <<Hrd:16, ProInt:16, Hln:8, Pln:8, Op:16,
+    OpInt = to_int(arp_op, Op),
+    <<Hrd:16, ProInt:16, Hln:8, Pln:8, OpInt:16,
       Sha:Hln/bytes, Spa:Pln/bytes, Tha:Hln/bytes, Tpa:Pln/bytes, Rest/bytes>>;
 encode(#icmp{type=Type, code=Code, checksum=_Checksum, data=Data},
        _Stack, Rest) ->
-    Pkt = <<Type:8, Code:8, 0:16, Data/bytes>>,
+    TypeInt = to_int(icmp_type, Type),
+    Pkt = <<TypeInt:8, Code:8, 0:16, Data/bytes>>,
     Checksum = checksum(Pkt),
-    <<Type:8, Code:8, Checksum:16, Data/bytes, Rest/bytes>>;
+    <<TypeInt:8, Code:8, Checksum:16, Data/bytes, Rest/bytes>>;
 encode(#tcp{src_port=SrcPort, dst_port=DstPort,
             seqno=SeqNo, ackno=AckNo, data_offset=_DataOffset,
             urg=URG, ack=ACK, psh=PSH, rst=RST, syn=SYN, fin=FIN,
