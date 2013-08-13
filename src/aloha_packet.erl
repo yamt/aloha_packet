@@ -24,7 +24,7 @@
 
 -module(aloha_packet).
 -export([encode_packet/1]).
--export([decode_packet/1, decode/2]).
+-export([decode_packet/1, decode/3]).
 
 -include("aloha_packet.hrl").
 
@@ -42,35 +42,45 @@ decode_packet(Data) ->
 decode_packet(_Type, <<>>, Acc) ->
     lists:reverse(Acc);
 decode_packet(Type, Data, Acc) ->
-    {Rec, NextType, Rest} = decode(Type, Data),
+    {Rec, NextType, Rest} = decode(Type, Data, Acc),
     decode_packet(NextType, Rest, [Rec|Acc]).
 
-decode(ether, Data) ->
+decode(ether, Data, _Stack) ->
     <<Dst:6/bytes, Src:6/bytes, TypeInt:16, Rest/bytes>> = Data,
     Type = to_atom(ethertype, TypeInt),
     {#ether{dst=Dst, src=Src, type=Type}, Type, Rest};
-decode(arp, Data) ->
+decode(arp, Data, _Stack) ->
     decode_arp(Data);
-decode(revarp, Data) ->
+decode(revarp, Data, _Stack) ->
     % compatible with arp
     Result = decode_arp(Data),
     setelement(1, Result, revarp);
-decode(ip, Data) ->
+decode(ip, Data, _Stack) ->
     <<Version:4, IHL:4, TOS:8, TotalLength:16,
       Id:16, _:1, DF:1, MF:1, Offset:13,
-      TTL:8, ProtocolInt:8, Checksum:16,
+      TTL:8, ProtocolInt:8, _Checksum:16,
       Src:4/bytes, Dst:4/bytes, Rest/bytes>> = Data,
-    OptLen = (IHL * 4) - 20,
+    HdrLen = IHL * 4,
+    OptLen = HdrLen - 20,
     DataLen = TotalLength - OptLen - 20,
     <<Options:OptLen/bytes, Rest2:DataLen/bytes, _/bytes>> = Rest,
     Protocol = to_atom(ip_proto, ProtocolInt),
+    <<CheckedData:HdrLen/bytes, _/bytes>> = Data,
+    Checksum = case checksum(CheckedData) of
+        0 -> good;
+        _ -> bad
+    end,
     {#ip{version=Version, ihl=IHL, tos=TOS, total_length=TotalLength,
      id=Id, df=DF, mf=MF, offset=Offset, ttl=TTL, protocol=Protocol,
      checksum=Checksum, src=Src, dst=Dst, options=Options}, Protocol, Rest2};
-decode(icmp, Data) ->
-    <<Type:8, Code:8, Checksum:16, Rest/bytes>> = Data,
+decode(icmp, Data, _Stack) ->
+    <<Type:8, Code:8, _Checksum:16, Rest/bytes>> = Data,
+    Checksum = case checksum(Data) of
+        0 -> good;
+        _ -> bad
+    end,
     {#icmp{type=Type, code=Code, checksum=Checksum, data=Rest}, bin, <<>>};
-decode(ipv6, Data) ->
+decode(ipv6, Data, _Stack) ->
     <<Version:4, TrafficClass:8, FlowLabel:20,
       PayloadLength:16, NextHeaderInt:8, HopLimit:8,
       Src:16/bytes, Dst:16/bytes, Rest/bytes>> = Data,
@@ -79,21 +89,31 @@ decode(ipv6, Data) ->
      flow_label=FlowLabel, payload_length=PayloadLength,
      next_header=NextHeader, hop_limit=HopLimit, src=Src, dst=Dst},
      NextHeader, Rest};
-decode(tcp, Data) ->
+decode(tcp, Data, Stack) ->
     <<SrcPort:16, DstPort:16,
       SeqNo:32,
       AckNo:32,
       DataOffset:4, _:6, URG:1, ACK:1, PSH:1, RST:1, SYN:1, FIN:1, Window:16,
-      Checksum:16, UrgentPointer:16,
+      _Checksum:16, UrgentPointer:16,
       Rest/bytes>> = Data,
     OptLen = (DataOffset - 5) * 4,
     <<Options:OptLen/bytes, Rest2/bytes>> = Rest,
+    Checksum = case Stack of
+        [Ip|_] ->
+            Phdr = phdr(Ip, DataOffset * 4 + size(Rest2)),
+            case checksum(<<Phdr/bytes, Data/bytes>>) of
+                0 -> good;
+                _ -> bad
+            end;
+        _ ->
+            unknown
+    end,
     {#tcp{src_port=SrcPort, dst_port=DstPort,
                seqno=SeqNo, ackno=AckNo, data_offset=DataOffset,
                urg=URG, ack=ACK, psh=PSH, rst=RST, syn=SYN, fin=FIN,
                window=Window, checksum=Checksum, urgent_pointer=UrgentPointer,
                options=Options}, bin, Rest2};
-decode(Type, Data) ->
+decode(Type, Data, _Stack) ->
     {{Type, Data}, bin, <<>>}.
 
 decode_arp(Data) ->
