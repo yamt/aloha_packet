@@ -44,9 +44,32 @@ tcp_term() ->
      #tcp{src_port = 8080,dst_port = 53984,seqno = 1,
           ackno = 3027167676,data_offset = 5,urg = 0,ack = 1,psh = 0,
           rst = 0,syn = 0,fin = 0,window = 3000,checksum = good,
-          urgent_pointer = 0,options = <<>>},
+          urgent_pointer = 0,options = []},
      {bin,<<"HTTP/1.1 200 OK\r\nconnection: keep-alive\r\nserver: Cowboy\r\ndate: Mon, 12 Aug 2013 14:40:23 GMT\r\ncontent-length: 7\r\n\r\naloha!\n">>}].
 
+tcp_bin2() ->
+    <<0,3,71,140,161,179,142,17,145,26,179,75,8,0,69,0,0,64,0,0,64,0,64,6,182,174,192,0,2,8,192,0,2,1,226,97,31,144,218,159,58,11,0,0,0,0,176,2,128,0,27,86,0,0,2,4,5,180,1,3,3,3,4,2,1,1,1,1,8,10,0,0,0,1,0,0,0,0>>.
+
+tcp_term2() ->
+    [#ether{dst = <<0,3,71,140,161,179>>,
+            src = <<142,17,145,26,179,75>>,
+            type = ip},
+     #ip{version = 4,ihl = 5,tos = 0,total_length = 64,id = 0,
+         df = 1,mf = 0,offset = 0,ttl = 64,protocol = tcp,
+         checksum = good,
+         src = <<192,0,2,8>>,
+         dst = <<192,0,2,1>>,
+         options = <<>>},
+     #tcp{src_port = 57953,dst_port = 8080,seqno = 3667868171,
+          ackno = 0,data_offset = 11,urg = 0,ack = 0,psh = 0,rst = 0,
+          syn = 1,fin = 0,window = 32768,checksum = good,
+          urgent_pointer = 0,
+          options = [{mss,1460},
+                     noop, 
+                     {wscale,3}, 
+                     sack_permitted,
+                     noop,noop,noop,noop,
+                     {timestamp,1,0}]}].
 
 arp_bin() ->
     <<242,11,164,149,235,12,0,3,71,140,161,179,8,6,0,1,8,0,6,4,0,2,0,3,71,140,161,179,192,0,2,1,242,11,164,149,235,12,192,0,2,9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0>>.
@@ -89,6 +112,12 @@ tcp_decode_test() ->
 
 tcp_encode_test() ->
     ?assertEqual(tcp_bin(), aloha_packet:encode_packet(tcp_term())).
+
+tcp2_decode_test() ->
+    ?assertEqual(tcp_term2(), aloha_packet:decode_packet(tcp_bin2())).
+
+tcp2_encode_test() ->
+    ?assertEqual(tcp_bin2(), aloha_packet:encode_packet(tcp_term2())).
 
 arp_decode_test() ->
     ?assertEqual(arp_term(), aloha_packet:decode_packet(arp_bin())).

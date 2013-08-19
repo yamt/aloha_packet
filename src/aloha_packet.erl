@@ -113,7 +113,7 @@ decode(tcp, Data, Stack) ->
                seqno=SeqNo, ackno=AckNo, data_offset=DataOffset,
                urg=URG, ack=ACK, psh=PSH, rst=RST, syn=SYN, fin=FIN,
                window=Window, checksum=Checksum, urgent_pointer=UrgentPointer,
-               options=Options}, bin, Rest2};
+               options=decode_tcp_option(Options)}, bin, Rest2};
 decode(Type, Data, _Stack) ->
     {{Type, Data}, bin, <<>>}.
 
@@ -124,6 +124,37 @@ decode_arp(Data) ->
     {#arp{hrd=Hrd, pro=to_atom(ethertype, Pro), hln=Hln, pln=Pln,
           op=to_atom(arp_op, Op), sha=Sha, spa=Spa, tha=Tha, tpa=Tpa},
      bin, Rest2}.
+
+decode_tcp_option(Data) ->
+    decode_tcp_option(Data, []).
+
+decode_tcp_option(<<>>, Acc) ->
+    lists:reverse(Acc);
+decode_tcp_option(Data, Acc) ->
+    <<KindInt:8, Rest/bytes>> = Data,
+    Kind = to_atom(tcp_option, KindInt),
+    decode_tcp_option(Kind, Rest, Acc).
+
+decode_tcp_option(eol, _Data, Acc) ->
+    decode_tcp_option(<<>>, [eol|Acc]);
+decode_tcp_option(noop, Data, Acc) ->
+    decode_tcp_option(Data, [noop|Acc]);
+decode_tcp_option(mss, Data, Acc) ->
+    <<4:8, Val:16, Rest/bytes>> = Data,
+    decode_tcp_option(Rest, [{mss, Val}|Acc]);
+decode_tcp_option(wscale, Data, Acc) ->
+    <<3:8, Val:8, Rest/bytes>> = Data,
+    decode_tcp_option(Rest, [{wscale, Val}|Acc]);
+decode_tcp_option(sack_permitted, Data, Acc) ->
+    <<2:8, Rest/bytes>> = Data,
+    decode_tcp_option(Rest, [sack_permitted|Acc]);
+decode_tcp_option(timestamp, Data, Acc) ->
+    <<10:8, Val1:32, Val2:32, Rest/bytes>> = Data,
+    decode_tcp_option(Rest, [{timestamp, Val1, Val2}|Acc]);
+decode_tcp_option(Type, Data, Acc) ->
+    <<Len:8, Rest/bytes>> = Data,
+    <<Val:Len/bytes, Rest2/bytes>> = Rest,
+    decode_tcp_option(Rest2, [{Type, Val}|Acc]).
 
 encode(#ether{dst=Dst, src=Src, type=Type}, _Stack, Rest) ->
     TypeInt = to_int(ethertype, Type),
@@ -163,8 +194,9 @@ encode(#tcp{src_port=SrcPort, dst_port=DstPort,
             seqno=SeqNo, ackno=AckNo, data_offset=_DataOffset,
             urg=URG, ack=ACK, psh=PSH, rst=RST, syn=SYN, fin=FIN,
             window=Window, checksum=_Checksum,
-            urgent_pointer=UrgentPointer, options=Options}, Stack, Rest) ->
+            urgent_pointer=UrgentPointer, options=OptionsTerm}, Stack, Rest) ->
     [Ip|_] = Stack,
+    Options = encode_tcp_option(OptionsTerm),
     OptLen = size(Options),
     OptPadLen = (-OptLen) band 3,
     DataOffset = (OptLen + OptPadLen) div 4 + 5,
@@ -181,6 +213,37 @@ encode({bin, Bin}, _Stack, Rest) ->
     <<Bin/bytes, Rest/bytes>>;
 encode(Bin, _Stack, Rest) when is_binary(Bin) ->
     <<Bin/bytes, Rest/bytes>>.
+
+encode_tcp_option(Bin) when is_binary(Bin) ->
+    Bin;
+encode_tcp_option(List) ->
+    encode_tcp_option(List, []).
+
+encode_tcp_option([], Acc) ->
+    iolist_to_binary(lists:reverse(Acc));
+encode_tcp_option([H|Rest], Acc) ->
+    encode_tcp_option(H, Rest, Acc).
+
+encode_tcp_option(eol, [], Acc) ->
+    KindInt = to_int(tcp_option, eol),
+    encode_tcp_option([], [<<KindInt:8>>|Acc]);
+encode_tcp_option(noop, Rest, Acc) ->
+    KindInt = to_int(tcp_option, noop),
+    encode_tcp_option(Rest, [<<KindInt:8>>|Acc]);
+encode_tcp_option({mss, Val}, Rest, Acc) ->
+    encode_tcp_option(mss, 2, Val, Rest, Acc);
+encode_tcp_option({wscale, Val}, Rest, Acc) ->
+    encode_tcp_option(wscale, 1, Val, Rest, Acc);
+encode_tcp_option(sack_permitted, Rest, Acc) ->
+    encode_tcp_option(sack_permitted, 0, 0, Rest, Acc);
+encode_tcp_option({timestamp, TSval, TSecr}, Rest, Acc) ->
+    encode_tcp_option(timestamp, 8, <<TSval:32, TSecr:32>>, Rest, Acc).
+
+encode_tcp_option(Kind, ValLen, Val, Rest, Acc) when is_binary(Val) ->
+    KindInt = to_int(tcp_option, Kind),
+    encode_tcp_option(Rest, [<<KindInt:8, (ValLen+2):8, Val/bytes>>|Acc]);
+encode_tcp_option(Kind, ValLen, Val, Rest, Acc) ->
+    encode_tcp_option(Kind, ValLen, <<Val:ValLen/unit:8>>, Rest, Acc).
 
 phdr(#ip{src=Src, dst=Dst, protocol=Proto}, Len) ->
     ProtoInt = to_int(ip_proto, Proto),

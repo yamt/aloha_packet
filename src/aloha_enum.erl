@@ -40,3 +40,11 @@
 
 -enum({icmp_type, [{echo_reply, 0},
                    {echo_request, 8}]}).
+
+-enum({tcp_option, [{eol, 0},
+                    {noop, 1},
+                    {mss, 2},
+                    {wscale, 3},
+                    {sack_permitted, 4},
+                    {sack, 5},
+                    {timestamp, 8}]}).
