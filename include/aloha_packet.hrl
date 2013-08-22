@@ -25,10 +25,10 @@
 -record(ether, {dst, src, type}).
 -record(arp, {hrd, pro, hln, pln, op, sha, spa, tha, tpa}).
 -record(revarp, {hrd, pro, hln, pln, op, sha, spa, tha, tpa}).
--record(ip, {version, ihl, tos, total_length, id, df, mf, offset, ttl,
-        protocol, checksum, src, dst, options}).
--record(ipv6, {version, traffic_class, flow_label, payload_length, next_header,
-        hop_limit, src, dst}).
+-record(ip, {version = 4, ihl, tos, total_length, id, df, mf, offset, ttl,
+             protocol, checksum, src, dst, options}).
+-record(ipv6, {version = 6, traffic_class, flow_label, payload_length,
+               next_header, hop_limit, src, dst}).
 -record(icmp, {type, code, checksum, data}).
 -record(icmpv6, {type, code, checksum, data}).
 -record(tcp, {src_port, dst_port, seqno = 0, ackno = 0, data_offset = 0,
