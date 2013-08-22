@@ -41,6 +41,13 @@
 -enum({icmp_type, [{echo_reply, 0},
                    {echo_request, 8}]}).
 
+-enum({icmpv6_type, [{destination_unreachable, 1},
+                     {packet_too_big, 2},
+                     {time_exceed, 3},
+                     {parameter_problem, 4},
+                     {echo_request, 128},
+                     {echo_reply, 129}]}).
+
 -enum({tcp_option, [{eol, 0},
                     {noop, 1},
                     {mss, 2},
