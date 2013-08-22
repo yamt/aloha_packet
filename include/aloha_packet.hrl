@@ -30,6 +30,7 @@
 -record(ipv6, {version, traffic_class, flow_label, payload_length, next_header,
         hop_limit, src, dst}).
 -record(icmp, {type, code, checksum, data}).
+-record(icmpv6, {type, code, checksum, data}).
 -record(tcp, {src_port, dst_port, seqno = 0, ackno = 0, data_offset = 0,
               urg = 0, ack = 0, psh = 0, rst = 0, syn = 0, fin = 0, window = 0,
               checksum, urgent_pointer = 0, options = <<>>}).

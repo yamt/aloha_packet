@@ -81,6 +81,16 @@ decode(icmp, Data, _Stack) ->
     end,
     {#icmp{type=to_atom(icmp_type, Type), code=Code, checksum=Checksum,
            data=Rest}, bin, <<>>};
+decode(icmpv6, Data, Stack) ->
+    <<Type:8, Code:8, _Checksum:16, Rest/bytes>> = Data,
+    [Ip|_] = Stack,
+    Phdr = phdr(Ip, byte_size(Data)),
+    Checksum = case checksum(<<Phdr/bytes, Data/bytes>>) of
+        0 -> good;
+        _ -> bad
+    end,
+    {#icmpv6{type=to_atom(icmpv6_type, Type), code=Code, checksum=Checksum,
+             data=Rest}, bin, <<>>};
 decode(ipv6, Data, _Stack) ->
     <<Version:4, TrafficClass:8, FlowLabel:20,
       PayloadLength:16, NextHeaderInt:8, HopLimit:8,
@@ -190,6 +200,22 @@ encode(#icmp{type=Type, code=Code, checksum=_Checksum, data=Data},
     Pkt = <<TypeInt:8, Code:8, 0:16, Data/bytes>>,
     Checksum = checksum(Pkt),
     <<TypeInt:8, Code:8, Checksum:16, Data/bytes, Rest/bytes>>;
+encode(#icmpv6{type=Type, code=Code, checksum=_Checksum, data=Data},
+       Stack, Rest) ->
+    TypeInt = to_int(icmpv6_type, Type),
+    Pkt = <<TypeInt:8, Code:8, 0:16, Data/bytes>>,
+    [Ip|_] = Stack,
+    Phdr = phdr(Ip, byte_size(Pkt)),
+    Checksum = checksum(<<Phdr/bytes, Pkt/bytes>>),
+    <<TypeInt:8, Code:8, Checksum:16, Data/bytes, Rest/bytes>>;
+encode(#ipv6{version = Version, traffic_class = TrafficClass,
+             flow_label = FlowLabel, payload_length = PayloadLength,
+             next_header = NextHeader, hop_limit = HopLimit,
+             src = Src, dst = Dst}, _Stack, Rest) ->
+    NextHeaderInt = to_int(ip_proto, NextHeader),
+    <<Version:4, TrafficClass:8, FlowLabel:20,
+      PayloadLength:16, NextHeaderInt:8, HopLimit:8,
+      Src:16/bytes, Dst:16/bytes, Rest/bytes>>;
 encode(#tcp{src_port=SrcPort, dst_port=DstPort,
             seqno=SeqNo, ackno=AckNo, data_offset=_DataOffset,
             urg=URG, ack=ACK, psh=PSH, rst=RST, syn=SYN, fin=FIN,
@@ -245,10 +271,12 @@ encode_tcp_option(Kind, ValLen, Val, Rest, Acc) when is_binary(Val) ->
 encode_tcp_option(Kind, ValLen, Val, Rest, Acc) ->
     encode_tcp_option(Kind, ValLen, <<Val:ValLen/unit:8>>, Rest, Acc).
 
-phdr(#ip{src=Src, dst=Dst, protocol=Proto}, Len) ->
+phdr(#ip{src = Src, dst = Dst, protocol = Proto}, Len) ->
     ProtoInt = to_int(ip_proto, Proto),
-    <<Src:4/bytes, Dst:4/bytes,
-      0:8, ProtoInt:8, Len:16>>.
+    <<Src:4/bytes, Dst:4/bytes, 0:8, ProtoInt:8, Len:16>>;
+phdr(#ipv6{src = Src, dst = Dst, next_header = Proto}, Len) ->
+    ProtoInt = to_int(ip_proto, Proto),
+    <<Src:16/bytes, Dst:16/bytes, Len:32, 0:24, ProtoInt:8>>.
 
 checksum(Bin) ->
     checksum_fold(checksum_add(Bin, 0)).
