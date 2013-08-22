@@ -85,6 +85,27 @@ icmpv6_term() ->
      #icmpv6{type = echo_request,code = 0,checksum = good,
              data = <<121,176,0,0,81,252,207,28,0,1,248,73>>}].
 
+neighbor_solicitation_bin() ->
+    <<51,51,255,0,0,1,142,17,145,26,179,75,134,221,96,0,0,0,0,32,58,255,32,1,13,184,0,0,0,0,0,0,0,0,0,0,0,2,255,2,0,0,0,0,0,0,0,0,0,1,255,0,0,1,135,0,75,177,0,0,0,0,32,1,13,184,0,0,0,0,0,0,0,0,0,0,0,1,1,1,142,17,145,26,179,75>>.
+
+neighbor_solicitation_term() ->
+    [#ether{
+         dst = <<51,51,255,0,0,1>>,
+         src = <<142,17,145,26,179,75>>,
+         type = ipv6},
+     #ipv6{
+         version = 6,traffic_class = 0,flow_label = 0,
+         payload_length = 32,next_header = icmpv6,hop_limit = 255,
+         src = <<32,1,13,184,0,0,0,0,0,0,0,0,0,0,0,2>>,
+         dst = <<255,2,0,0,0,0,0,0,0,0,0,1,255,0,0,1>>},
+     #icmpv6{
+         type = neighbor_solicitation,code = 0,checksum = good,
+         data = 
+             #neighbor_solicitation{
+                 target_address = <<32,1,13,184,0,0,0,0,0,0,0,0,0,0,0,1>>,
+                 options = 
+                     [{source_link_layer_address,<<142,17,145,26,179,75>>}]}}].
+
 arp_bin() ->
     <<242,11,164,149,235,12,0,3,71,140,161,179,8,6,0,1,8,0,6,4,0,2,0,3,71,140,161,179,192,0,2,1,242,11,164,149,235,12,192,0,2,9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0>>.
 
@@ -144,6 +165,14 @@ icmpv6_decode_test() ->
 
 icmpv6_encode_test() ->
     ?assertEqual(icmpv6_bin(), aloha_packet:encode_packet(icmpv6_term())).
+
+neighbor_solicitation_decode_test() ->
+    ?assertEqual(neighbor_solicitation_term(),
+                 aloha_packet:decode_packet(neighbor_solicitation_bin())).
+
+neighbor_solicitation_encode_test() ->
+    ?assertEqual(neighbor_solicitation_bin(),
+                 aloha_packet:encode_packet(neighbor_solicitation_term())).
 
 icmp_decode_test() ->
     ?assertEqual(icmp_term(), aloha_packet:decode_packet(icmp_bin())).

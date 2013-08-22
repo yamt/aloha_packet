@@ -54,6 +54,13 @@
                      {neighbor_advertisement, 136},
                      {redirect, 137}]}).
 
+% RFC 2463 4.6.
+-enum({icmpv6_option, [{source_link_layer_address, 1},
+                       {target_link_layer_address, 2},
+                       {prefix_information, 3},
+                       {redirected_header, 4},
+                       {mtu, 5}]}).
+
 -enum({tcp_option, [{eol, 0},
                     {noop, 1},
                     {mss, 2},
