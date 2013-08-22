@@ -41,12 +41,18 @@
 -enum({icmp_type, [{echo_reply, 0},
                    {echo_request, 8}]}).
 
+% RFC 2461 2463
 -enum({icmpv6_type, [{destination_unreachable, 1},
                      {packet_too_big, 2},
                      {time_exceed, 3},
                      {parameter_problem, 4},
                      {echo_request, 128},
-                     {echo_reply, 129}]}).
+                     {echo_reply, 129},
+                     {router_solicitation, 133},
+                     {router_advertisement, 134},
+                     {neighbor_solicitation, 135},
+                     {neighbor_advertisement, 136},
+                     {redirect, 137}]}).
 
 -enum({tcp_option, [{eol, 0},
                     {noop, 1},
