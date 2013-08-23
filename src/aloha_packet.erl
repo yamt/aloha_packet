@@ -140,6 +140,12 @@ decode_icmpv6(neighbor_solicitation, Data) ->
     <<_Reserved:32, TargetAddress:16/bytes, Options/bytes>> = Data,
     #neighbor_solicitation{target_address = TargetAddress,
                            options = decode_icmpv6_options(Options)};
+decode_icmpv6(neighbor_advertisement, Data) ->
+    <<Router:1, Solicited:1, Override:1, 0:29,
+      TargetAddress:16/bytes, Options/bytes>> = Data,
+    #neighbor_advertisement{router = Router, solicited = Solicited,
+                            override = Override, target_address = TargetAddress,
+                            options = decode_icmpv6_options(Options)};
 decode_icmpv6(_, Data) ->
     Data.
 
@@ -269,7 +275,14 @@ encode_icmpv6(Bin) when is_binary(Bin) ->
 encode_icmpv6(#neighbor_solicitation{target_address = TargetAddress,
                                      options = Options}) ->
     OptionsBin = encode_icmpv6_options(Options),
-    <<0:32, TargetAddress:16/bytes, OptionsBin/bytes>>.
+    <<0:32, TargetAddress:16/bytes, OptionsBin/bytes>>;
+encode_icmpv6(#neighbor_advertisement{router = Router, solicited = Solicited,
+                                      override = Override,
+                                      target_address = TargetAddress,
+                                      options = Options}) ->
+    OptionsBin = encode_icmpv6_options(Options),
+    <<Router:1, Solicited:1, Override:1, 0:29,
+      TargetAddress:16/bytes, OptionsBin/bytes>>.
 
 % RFC 2461 4.6.
 encode_icmpv6_options(Data) ->
