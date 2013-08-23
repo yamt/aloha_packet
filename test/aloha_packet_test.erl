@@ -106,6 +106,28 @@ neighbor_solicitation_term() ->
                  options = 
                      [{source_link_layer_address,<<142,17,145,26,179,75>>}]}}].
 
+neighbor_advertisement_bin() ->
+    <<142,17,145,26,179,75,0,3,71,140,161,179,134,221,96,0,0,0,0,32,58,255,32,1,13,184,0,0,0,0,0,0,0,0,0,0,0,1,32,1,13,184,0,0,0,0,0,0,0,0,0,0,0,2,136,0,163,49,96,0,0,0,32,1,13,184,0,0,0,0,0,0,0,0,0,0,0,1,2,1,0,3,71,140,161,179>>.
+
+neighbor_advertisement_term() ->
+    [#ether{
+         dst = <<142,17,145,26,179,75>>,
+         src = <<0,3,71,140,161,179>>,
+         type = ipv6},
+     #ipv6{
+         version = 6,traffic_class = 0,flow_label = 0,
+         payload_length = 32,next_header = icmpv6,hop_limit = 255,
+         src = <<32,1,13,184,0,0,0,0,0,0,0,0,0,0,0,1>>,
+         dst = <<32,1,13,184,0,0,0,0,0,0,0,0,0,0,0,2>>},
+     #icmpv6{
+         type = neighbor_advertisement,code = 0,checksum = good,
+         data = 
+             #neighbor_advertisement{
+                 router = 0,solicited = 1,override = 1,
+                 target_address = <<32,1,13,184,0,0,0,0,0,0,0,0,0,0,0,1>>,
+                 options = 
+                     [{target_link_layer_address,<<0,3,71,140,161,179>>}]}}].
+
 arp_bin() ->
     <<242,11,164,149,235,12,0,3,71,140,161,179,8,6,0,1,8,0,6,4,0,2,0,3,71,140,161,179,192,0,2,1,242,11,164,149,235,12,192,0,2,9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0>>.
 
@@ -173,6 +195,14 @@ neighbor_solicitation_decode_test() ->
 neighbor_solicitation_encode_test() ->
     ?assertEqual(neighbor_solicitation_bin(),
                  aloha_packet:encode_packet(neighbor_solicitation_term())).
+
+neighbor_advertisement_decode_test() ->
+    ?assertEqual(neighbor_advertisement_term(),
+                 aloha_packet:decode_packet(neighbor_advertisement_bin())).
+
+neighbor_advertisement_encode_test() ->
+    ?assertEqual(neighbor_advertisement_bin(),
+                 aloha_packet:encode_packet(neighbor_advertisement_term())).
 
 icmp_decode_test() ->
     ?assertEqual(icmp_term(), aloha_packet:decode_packet(icmp_bin())).
