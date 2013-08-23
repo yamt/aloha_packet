@@ -239,9 +239,10 @@ encode(#icmpv6{type=Type, code=Code, checksum=_Checksum, data=Data},
     Checksum = checksum(<<Phdr/bytes, Pkt/bytes>>),
     <<TypeInt:8, Code:8, Checksum:16, DataBin/bytes, Rest/bytes>>;
 encode(#ipv6{version = Version, traffic_class = TrafficClass,
-             flow_label = FlowLabel, payload_length = PayloadLength,
+             flow_label = FlowLabel,
              next_header = NextHeader, hop_limit = HopLimit,
              src = Src, dst = Dst}, _Stack, Rest) ->
+    PayloadLength = byte_size(Rest),
     NextHeaderInt = to_int(ip_proto, NextHeader),
     <<Version:4, TrafficClass:8, FlowLabel:20,
       PayloadLength:16, NextHeaderInt:8, HopLimit:8,
