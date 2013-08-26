@@ -6,7 +6,7 @@ This is a packet decoder/encoder written in Erlang.
 [![Build Status](https://travis-ci.org/yamt/aloha_packet.png?branch=master)](https://travis-ci.org/yamt/aloha_packet)
 
 Example
-=======
+-------
 
     Erlang R16B01 (erts-5.10.2) [source] [64-bit] [smp:8:8] [async-threads:10] [hipe] [kernel-poll:false] [dtrace]
 
