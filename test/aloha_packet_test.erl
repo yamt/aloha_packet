@@ -50,6 +50,25 @@ tcp_term() ->
 tcp_bin2() ->
     <<0,3,71,140,161,179,142,17,145,26,179,75,8,0,69,0,0,64,0,0,64,0,64,6,182,174,192,0,2,8,192,0,2,1,226,97,31,144,218,159,58,11,0,0,0,0,176,2,128,0,27,86,0,0,2,4,5,180,1,3,3,3,4,2,1,1,1,1,8,10,0,0,0,1,0,0,0,0>>.
 
+tcp_term3() ->
+    [#ether{dst = <<0,3,71,140,161,179>>,
+            src = <<142,17,145,26,179,75>>,
+            type = ip},
+     #ip{version = 4,ihl = 5,tos = 0,total_length = 45,id = 0,
+         df = 1,mf = 0,offset = 0,ttl = 64,protocol = tcp,
+         checksum = good,
+         src = <<192,0,2,8>>,
+         dst = <<192,0,2,1>>,
+         options = <<>>},
+     #tcp{src_port = 57665,dst_port = 9999,seqno = 1464125446,
+          ackno = 65,data_offset = 5,urg = 0,ack = 1,psh = 1,rst = 0,
+          syn = 0,fin = 0,window = 33580,checksum = good,
+          urgent_pointer = 0,options = []},
+     {bin,<<"heh\r\n">>}].
+
+tcp_bin3() ->
+    <<0,3,71,140,161,179,142,17,145,26,179,75,8,0,69,0,0,45,0,0,64,0,64,6,182,193,192,0,2,8,192,0,2,1,225,65,39,15,87,68,200,6,0,0,0,65,80,24,131,44,166,65,0,0,104,101,104,13,10,0>>.
+
 tcp_term2() ->
     [#ether{dst = <<0,3,71,140,161,179>>,
             src = <<142,17,145,26,179,75>>,
@@ -175,6 +194,12 @@ tcp2_decode_test() ->
 
 tcp2_encode_test() ->
     ?assertEqual(tcp_bin2(), aloha_packet:encode_packet(tcp_term2())).
+
+tcp3_decode_test() ->
+    ?assertEqual(tcp_term3(), aloha_packet:decode_packet(tcp_bin3())).
+
+tcp3_encode_test() ->
+    ?assertEqual(tcp_bin3(), aloha_packet:encode_packet(tcp_term3())).
 
 arp_decode_test() ->
     ?assertEqual(arp_term(), aloha_packet:decode_packet(arp_bin())).
