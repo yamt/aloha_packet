@@ -23,17 +23,17 @@
 % SUCH DAMAGE.
 
 -record(ether, {dst, src, type}).
--record(arp, {hrd, pro, hln, pln, op, sha, spa, tha, tpa}).
--record(revarp, {hrd, pro, hln, pln, op, sha, spa, tha, tpa}).
+-record(arp, {hrd = 1, pro = ip, hln = 6, pln = 4, op, sha, spa, tha, tpa}).
+-record(revarp, {hrd = 1, pro = ip, hln = 6, pln = 4, op, sha, spa, tha, tpa}).
 -record(ip, {version = 4, ihl, tos, total_length, id, df, mf, offset, ttl,
              protocol, checksum, src, dst, options}).
--record(ipv6, {version = 6, traffic_class, flow_label, payload_length,
-               next_header, hop_limit, src, dst}).
--record(icmp, {type, code, checksum, data}).
--record(icmpv6, {type, code, checksum, data}).
--record(neighbor_solicitation, {target_address, options}).
+-record(ipv6, {version = 6, traffic_class = 0, flow_label = 0, payload_length,
+               next_header, hop_limit = 255, src, dst}).
+-record(icmp, {type, code = 0, checksum, data}).
+-record(icmpv6, {type, code = 0, checksum, data}).
+-record(neighbor_solicitation, {target_address, options = []}).
 -record(neighbor_advertisement, {router, solicited, override, target_address,
-                                 options}).
+                                 options = []}).
 -record(tcp, {src_port, dst_port, seqno = 0, ackno = 0, data_offset = 0,
               urg = 0, ack = 0, psh = 0, rst = 0, syn = 0, fin = 0, window = 0,
-              checksum, urgent_pointer = 0, options = <<>>}).
+              checksum, urgent_pointer = 0, options = []}).
