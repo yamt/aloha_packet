@@ -25,8 +25,9 @@
 -record(ether, {dst, src, type}).
 -record(arp, {hrd = 1, pro = ip, hln = 6, pln = 4, op, sha, spa, tha, tpa}).
 -record(revarp, {hrd = 1, pro = ip, hln = 6, pln = 4, op, sha, spa, tha, tpa}).
--record(ip, {version = 4, ihl, tos, total_length, id, df, mf, offset, ttl,
-             protocol, checksum, src, dst, options}).
+-record(ip, {version = 4, ihl, tos = 0, total_length, id = 0, df = 0, mf = 0,
+             offset = 0, ttl = 255, protocol, checksum, src, dst,
+             options = <<>>}).
 -record(ipv6, {version = 6, traffic_class = 0, flow_label = 0, payload_length,
                next_header, hop_limit = 255, src, dst}).
 -record(icmp, {type, code = 0, checksum, data}).
