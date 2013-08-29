@@ -201,13 +201,15 @@ encode(#ether{dst=Dst, src=Src, type=Type}, _Stack, Rest) ->
     Size = size(Bin),
     Pad = max(60 - Size, 0),
     <<Bin/binary, 0:Pad/unit:8>>;
-encode(#ip{version=Version, ihl=IHL, tos=TOS, total_length=_TotalLength,
+encode(#ip{version=Version, ihl=_IHL, tos=TOS, total_length=_TotalLength,
      id=Id, df=DF, mf=MF, offset=Offset, ttl=TTL, protocol=Protocol,
      checksum=_Checksum, src=Src, dst=Dst, options=Options}, _Stack, Rest) ->
     ProtocolInt = to_int(ip_proto, Protocol),
-    OptLen = size(Options),
+    OptLen = byte_size(Options),
     OptPadLen = (-OptLen) band 3,
-    TotalLength = 20 + OptLen + OptPadLen + size(Rest),
+    HdrLen = 20 + OptLen + OptPadLen,
+    IHL = HdrLen div 4,
+    TotalLength = HdrLen + byte_size(Rest),
     Checksum = checksum(<<Version:4, IHL:4, TOS:8, TotalLength:16,
       Id:16, 0:1, DF:1, MF:1, Offset:13,
       TTL:8, ProtocolInt:8, 0:16,
