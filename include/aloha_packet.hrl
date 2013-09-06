@@ -22,19 +22,83 @@
 % OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 % SUCH DAMAGE.
 
--record(ether, {dst, src, type}).
+-type flag() :: 0 | 1.
+-type u8() :: 0..16#ff.
+-type u16() :: 0..16#ffff.
+-type u32() :: 0..16#ffffffff.
+-type ether_address() :: <<_:48>>.
+-type ether_type() :: atom() | u8().
+-type ip_address() :: <<_:32>>.
+-type ipv6_address() :: <<_:128>>.
+-type ip_proto() :: atom() | u8().
+-type ip_port() :: u16().
+-type tcp_seq() :: u32().
+-type icmp_type() :: atom() | u8().
+-type checksum16() :: u16 | good | bad | unknown.
+-type plist() :: [atom() | tuple()].
+
+-record(ether, {
+    dst :: ether_address(),
+    src :: ether_address(),
+    type :: ether_type()}).
 -record(arp, {hrd = 1, pro = ip, hln = 6, pln = 4, op, sha, spa, tha, tpa}).
 -record(revarp, {hrd = 1, pro = ip, hln = 6, pln = 4, op, sha, spa, tha, tpa}).
--record(ip, {version = 4, ihl, tos = 0, total_length, id = 0, df = 0, mf = 0,
-             offset = 0, ttl = 255, protocol, checksum, src, dst,
-             options = <<>>}).
--record(ipv6, {version = 6, traffic_class = 0, flow_label = 0, payload_length,
-               next_header, hop_limit = 255, src, dst}).
--record(icmp, {type, code = 0, checksum, data}).
--record(icmpv6, {type, code = 0, checksum, data}).
--record(neighbor_solicitation, {target_address, options = []}).
--record(neighbor_advertisement, {router, solicited, override, target_address,
-                                 options = []}).
--record(tcp, {src_port, dst_port, seqno = 0, ackno = 0, data_offset = 0,
-              urg = 0, ack = 0, psh = 0, rst = 0, syn = 0, fin = 0, window = 0,
-              checksum, urgent_pointer = 0, options = []}).
+-record(ip, {
+    version = 4 :: 0..15,
+    ihl :: 0..15,
+    tos = 0 :: u8(),
+    total_length :: u16(),
+    id = 0 :: u16(),
+    df = 0 :: flag(),
+    mf = 0 :: flag(),
+    offset = 0 :: 0..8191,
+    ttl = 255 :: u8(),
+    protocol :: ip_proto(),
+    checksum :: checksum16(),
+    src :: ip_address(), 
+    dst :: ip_address(),
+    options = <<>> :: binary()}).
+-record(ipv6, {
+    version = 6 :: 0..15,
+    traffic_class = 0 :: u8(),
+    flow_label = 0 :: 0..1048575,
+    payload_length :: u16(),
+    next_header :: ip_proto(),
+    hop_limit = 255 :: u8(),
+    src :: ipv6_address(),
+    dst :: ipv6_address()}).
+-record(icmp, {
+    type :: icmp_type(),
+    code = 0 :: u8(),
+    checksum :: checksum16(),
+    data :: binary()}).
+-record(icmpv6, {
+    type :: icmp_type(),
+    code = 0 :: u8(),
+    checksum :: checksum16(),
+    data :: binary() | tuple()}).
+-record(neighbor_solicitation, {
+    target_address :: ipv6_address(),
+    options = [] :: plist()}).
+-record(neighbor_advertisement, {
+    router :: flag(),
+    solicited :: flag(),
+    override :: flag(),
+    target_address :: ipv6_address(),
+    options = [] :: plist()}).
+-record(tcp, {
+    src_port :: ip_port(),
+    dst_port :: ip_port(),
+    seqno = 0 :: tcp_seq(),
+    ackno = 0 :: tcp_seq(),
+    data_offset = 0 :: 0..15,
+    urg = 0 :: flag(),
+    ack = 0 :: flag(),
+    psh = 0 :: flag(),
+    rst = 0 :: flag(),
+    syn = 0 :: flag(),
+    fin = 0 :: flag(),
+    window = 0 :: u16(),
+    checksum :: checksum16(),
+    urgent_pointer = 0 :: u16(),
+    options = [] :: binary() | plist()}).
