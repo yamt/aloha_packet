@@ -70,9 +70,13 @@ decode(ip, Data, _Stack) ->
         0 -> good;
         _ -> bad
     end,
+    Next = case MF =:= 0 andalso Offset =:= 0 of
+        true -> Protocol;
+        _ -> bin
+    end,
     {#ip{version=Version, ihl=IHL, tos=TOS, total_length=TotalLength,
      id=Id, df=DF, mf=MF, offset=Offset, ttl=TTL, protocol=Protocol,
-     checksum=Checksum, src=Src, dst=Dst, options=Options}, Protocol, Rest2};
+     checksum=Checksum, src=Src, dst=Dst, options=Options}, Next, Rest2};
 decode(icmp, Data, _Stack) ->
     <<Type:8, Code:8, _Checksum:16, Rest/bytes>> = Data,
     Checksum = case checksum(Data) of
