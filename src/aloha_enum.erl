@@ -33,6 +33,7 @@
 -enum({ip_proto, [{icmp, 1},
                   {tcp, 6},
                   {udp, 17},
+                  {ipv6_frag, 44},
                   {icmpv6, 58}]}).
 
 -enum({arp_op, [{request, 1},

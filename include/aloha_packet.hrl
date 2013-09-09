@@ -67,6 +67,11 @@
     hop_limit = 255 :: u8(),
     src :: ipv6_address(),
     dst :: ipv6_address()}).
+-record(ipv6_frag, {
+    next_header :: u8(),
+    fragment_offset :: 0..(1 bsl 13 - 1),
+    more :: flag(),
+    identification :: u32()}).
 -record(icmp, {
     type :: icmp_type(),
     code = 0 :: u8(),

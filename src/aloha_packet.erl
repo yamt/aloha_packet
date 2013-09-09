@@ -83,7 +83,7 @@ decode(icmp, Data, _Stack) ->
            data=Rest}, bin, <<>>};
 decode(icmpv6, Data, Stack) ->
     <<TypeInt:8, Code:8, _Checksum:16, Rest/bytes>> = Data,
-    [Ip|_] = Stack,
+    Ip = find_ip(Stack),
     Phdr = phdr(Ip, byte_size(Data)),
     Checksum = case checksum(<<Phdr/bytes, Data/bytes>>) of
         0 -> good;
@@ -101,6 +101,14 @@ decode(ipv6, Data, _Stack) ->
      flow_label=FlowLabel, payload_length=PayloadLength,
      next_header=NextHeader, hop_limit=HopLimit, src=Src, dst=Dst},
      NextHeader, Rest};
+decode(ipv6_frag, Data, _Stack) ->
+    <<NextHeaderInt:8, _Reserved:8, FragmentOffset:13, _Res:2, More:1,
+      Identification:32, Rest/bytes>> = Data,
+    NextHeader = to_atom(ip_proto, NextHeaderInt),
+    {#ipv6_frag{next_header = NextHeader,
+                fragment_offset = FragmentOffset, more = More,
+                identification = Identification},
+     bin, Rest};
 decode(tcp, Data, Stack) ->
     <<SrcPort:16, DstPort:16,
       SeqNo:32,
@@ -110,15 +118,15 @@ decode(tcp, Data, Stack) ->
       Rest/bytes>> = Data,
     OptLen = (DataOffset - 5) * 4,
     <<Options:OptLen/bytes, Rest2/bytes>> = Rest,
-    Checksum = case Stack of
-        [Ip|_] ->
+    Checksum = case find_ip(Stack) of
+        none ->
+            unknown;
+        Ip ->
             Phdr = phdr(Ip, DataOffset * 4 + size(Rest2)),
             case checksum(<<Phdr/bytes, Data/bytes>>) of
                 0 -> good;
                 _ -> bad
-            end;
-        _ ->
-            unknown
+            end
     end,
     {#tcp{src_port=SrcPort, dst_port=DstPort,
                seqno=SeqNo, ackno=AckNo, data_offset=DataOffset,
@@ -127,6 +135,15 @@ decode(tcp, Data, Stack) ->
                options=decode_tcp_option(Options)}, bin, Rest2};
 decode(Type, Data, _Stack) ->
     {{Type, Data}, bin, <<>>}.
+
+find_ip([]) ->
+    none;
+find_ip([#ipv6{} = H|_]) ->
+    H;
+find_ip([#ip{} = H|_]) ->
+    H;
+find_ip([_H|Rest]) ->
+    find_ip(Rest).
 
 decode_arp(Data) ->
     <<Hrd:16, Pro:16, Hln:8, Pln:8, Op:16, Rest/bytes>> = Data,
@@ -249,6 +266,12 @@ encode(#ipv6{version = Version, traffic_class = TrafficClass,
     <<Version:4, TrafficClass:8, FlowLabel:20,
       PayloadLength:16, NextHeaderInt:8, HopLimit:8,
       Src:16/bytes, Dst:16/bytes, Rest/bytes>>;
+encode(#ipv6_frag{next_header = NextHeader,
+                   fragment_offset = FragmentOffset, more = More,
+                   identification = Identification}, _Stack, Rest) ->
+    NextHeaderInt = to_int(ip_proto, NextHeader),
+    <<NextHeaderInt:8, 0:8, FragmentOffset:13, 0:2, More:1,
+      Identification:32, Rest/bytes>>;
 encode(#tcp{src_port=SrcPort, dst_port=DstPort,
             seqno=SeqNo, ackno=AckNo, data_offset=_DataOffset,
             urg=URG, ack=ACK, psh=PSH, rst=RST, syn=SYN, fin=FIN,
