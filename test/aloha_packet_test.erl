@@ -206,11 +206,15 @@ ipv6_frag_bin() ->
 
 ipv6_frag_term() ->
     Payload = ipv6_frag_payload(),
-    [{ether,<<0,3,71,140,161,179>>,<<26,249,192,230,163,71>>,ipv6},
-     {ipv6,6,0,0,320,ipv6_frag,64,
-           <<32,1,13,184,0,0,0,0,0,0,0,0,0,0,0,9>>,
-           <<32,1,13,184,0,0,0,0,0,0,0,0,0,0,0,1>>},
-     {ipv6_frag,icmpv6,462,0,2234468961},
+    [#ether{dst = <<0,3,71,140,161,179>>,
+            src = <<26,249,192,230,163,71>>,
+            type = ipv6},
+     #ipv6{version = 6,traffic_class = 0,flow_label = 0,
+           payload_length = 320,next_header = ipv6_frag,hop_limit = 64,
+           src = <<32,1,13,184,0,0,0,0,0,0,0,0,0,0,0,9>>,
+           dst = <<32,1,13,184,0,0,0,0,0,0,0,0,0,0,0,1>>},
+     #ipv6_frag{next_header = icmpv6,fragment_offset = 462,
+                more = 0,identification = 2234468961},
      {bin, Payload}].
 
 remove_pad(Packet) ->
