@@ -25,24 +25,29 @@
 -module(aloha_enum).
 -compile({parse_transform, eenum}).
 
+% http://standards.ieee.org/develop/regauth/ethertype/public.html
 -enum({ethertype, [{ip, 16#0800},
                    {arp, 16#0806},
                    {revarp, 16#8035},
                    {ipv6, 16#86dd}]}).
 
+% http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml
 -enum({ip_proto, [{icmp, 1},
                   {tcp, 6},
                   {udp, 17},
                   {ipv6_frag, 44},
                   {icmpv6, 58}]}).
 
+% RFC 826
 -enum({arp_op, [{request, 1},
                 {reply, 2}]}).
 
+% RFC 792
 -enum({icmp_type, [{echo_reply, 0},
                    {echo_request, 8}]}).
 
-% RFC 2461 2463
+% RFC 2461
+% RFC 2463
 -enum({icmpv6_type, [{destination_unreachable, 1},
                      {packet_too_big, 2},
                      {time_exceed, 3},
@@ -62,6 +67,9 @@
                        {redirected_header, 4},
                        {mtu, 5}]}).
 
+% RFC 793
+% RFC 1323
+% RFC 2018
 -enum({tcp_option, [{eol, 0},
                     {noop, 1},
                     {mss, 2},
