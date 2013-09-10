@@ -383,6 +383,7 @@ encode(#rst_bpdu{
       MaxAge:16,
       HelloTime:16,
       ForwardDelay:16,
+      0:16,  % Version 1 Length
       Rest/bytes>>;
 encode(#ip{version=Version, ihl=_IHL, tos=TOS, total_length=_TotalLength,
      id=Id, df=DF, mf=MF, offset=Offset, ttl=TTL, protocol=Protocol,

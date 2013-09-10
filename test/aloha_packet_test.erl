@@ -217,14 +217,14 @@ ipv6_frag_term() ->
                 more = 0,identification = 2234468961},
      {bin, Payload}].
 
-llc_bin() ->
+bstp_bin() ->
     <<1,128,194,0,0,0,70,106,72,87,196,47,0,38,66,66,3,0,0,0,0,0,
       128,0,70,106,72,87,196,47,0,30,132,128,128,0,70,106,72,87,196,
       47,128,1,1,0,20,0,2,0,15,0
       % padding
       ,0,0,0,0,0,0,0,0>>.
 
-llc_term() ->
+bstp_term() ->
     [#ether{dst = <<1,128,194,0,0,0>>,
             src = <<70,106,72,87,196,47>>,type = llc},
      #llc{dsap = bstp,ssap = bstp,control = #llc_control_u{m = 0,pf = 0}},
@@ -236,6 +236,43 @@ llc_term() ->
                          port_identifier = 32769,message_age = 256,
                          max_age = 5120,
                          hello_time = 512,forward_delay = 3840}].
+
+bstp2_bin() ->
+    <<1,128,194,0,0,0,70,106,72,87,196,47,0,40,66,66,3,0,0,2,2,0,
+      128,0,70,106,72,87,196,47,0,30,132,128,128,0,70,106,72,87,196,
+      47,128,1,1,0,20,0,2,0,15,0,0,0,
+      % padding
+      0,0,0,0,0,0>>.
+
+bstp2_term() ->
+    [#ether{dst = <<1,128,194,0,0,0>>,
+            src = <<70,106,72,87,196,47>>,type = llc},
+     #llc{dsap = bstp,ssap = bstp,control = #llc_control_u{m = 0,pf = 0}},
+     #rst_bpdu{topology_change_ack = 0,
+               agreement = 0,
+               forwarding = 0,
+               learning = 0,
+               port_role = 0,
+               proposal = 0,
+               topology_change = 0,
+               root_identifier = <<128,0,70,106,72,87,196,47>>,
+               root_path_cost = 2000000,
+               bridge_identifier = <<128,0,70,106,72,87,196,47>>,
+               port_identifier = 32769,message_age = 256,
+               max_age = 5120,
+               hello_time = 512,forward_delay = 3840}].
+
+bstp3_bin() ->
+    <<1,128,194,0,0,0,70,106,72,87,196,47,0,7,66,66,3,0,0,0,8,
+      % padding
+      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+      0,0,0,0,0,0,0,0,0,0,0>>.
+
+bstp3_term() ->
+    [#ether{dst = <<1,128,194,0,0,0>>,
+            src = <<70,106,72,87,196,47>>,type = llc},
+     #llc{dsap = bstp,ssap = bstp,control = #llc_control_u{m = 0,pf = 0}},
+     #topology_change_notification_bpdu{}].
 
 snap_bin() ->
     <<0,0,0,0,0,0,0,3,71,140,161,179,0,48,170,170,3,0,0,0,8,0,
@@ -331,13 +368,26 @@ ether_pad_test() ->
     ?assertEqual(60, byte_size(arp_bin())),
     ?assertEqual(arp_bin(), aloha_packet:encode_packet(remove_pad(arp_term()))).
 
-llc_decode_test() ->
-    io:format("~p", [aloha_packet:decode_packet(llc_bin())]),
-    ?assertEqual(60, byte_size(llc_bin())),
-    ?assertEqual(llc_term(), aloha_packet:decode_packet(llc_bin())).
+bstp_decode_test() ->
+    ?assertEqual(60, byte_size(bstp_bin())),
+    ?assertEqual(bstp_term(), aloha_packet:decode_packet(bstp_bin())).
 
-llc_encode_test() ->
-    ?assertEqual(llc_bin(), aloha_packet:encode_packet(llc_term())).
+bstp_encode_test() ->
+    ?assertEqual(bstp_bin(), aloha_packet:encode_packet(bstp_term())).
+
+bstp2_decode_test() ->
+    ?assertEqual(60, byte_size(bstp2_bin())),
+    ?assertEqual(bstp2_term(), aloha_packet:decode_packet(bstp2_bin())).
+
+bstp2_encode_test() ->
+    ?assertEqual(bstp2_bin(), aloha_packet:encode_packet(bstp2_term())).
+
+bstp3_decode_test() ->
+    ?assertEqual(60, byte_size(bstp3_bin())),
+    ?assertEqual(bstp3_term(), aloha_packet:decode_packet(bstp3_bin())).
+
+bstp3_encode_test() ->
+    ?assertEqual(bstp3_bin(), aloha_packet:encode_packet(bstp3_term())).
 
 snap_decode_test() ->
     ?assertEqual(snap_term(), aloha_packet:decode_packet(snap_bin())).
