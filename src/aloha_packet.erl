@@ -46,9 +46,40 @@ decode_packet(Type, Data, Acc) ->
     decode_packet(NextType, Rest, [Rec|Acc]).
 
 decode(ether, Data, _Stack) ->
-    <<Dst:6/bytes, Src:6/bytes, TypeInt:16, Rest/bytes>> = Data,
+    <<Dst:6/bytes, Src:6/bytes, TypeLen:16, Rest/bytes>> = Data,
+    {Type, Rest3} = case TypeLen >= 16#5dc of
+        true ->
+            {to_atom(ethertype, TypeLen), Rest};
+        false ->
+            <<Rest2:TypeLen/bytes, _/bytes>> = Rest,
+            {llc, Rest2}
+    end,
+    {#ether{dst = Dst, src = Src, type = Type}, Type, Rest3};
+decode(llc, Data, _Stack) ->
+    <<DSAP:8, SSAP:8, Rest/bytes>> = Data,
+    {Control, Rest3} = case Rest of
+        <<NS:7, 0:1,
+          NR:7, PF:1,
+          Rest2/bytes>> ->
+            {#llc_control_i{ns = NS, pf = PF, nr = NR}, Rest2};
+        <<_X:4, S:2, 0:1, 1:1,
+          NR:7, PF:1,
+          Rest2/bytes>> ->
+            {#llc_control_s{s = S, pf = PF, nr = NR}, Rest2};
+        <<M2:3, PF:1, M1:2, 1:1, 1:1,
+          Rest2/bytes>> ->
+            <<M:5>> = <<M2:3, M1:2>>,
+            {#llc_control_u{m = M, pf = PF}, Rest2}
+    end,
+    Next = case {DSAP, SSAP, Control} of
+        {16#aa, 16#aa, #llc_control_u{m = 0, pf = 0}} -> snap;
+        _ -> bin
+    end,
+    {#llc{dsap = DSAP, ssap = SSAP, control = Control}, Next, Rest3};
+decode(snap, Data, _Stack) ->
+    <<ProtocolId:24, TypeInt:16, Rest/bytes>> = Data,
     Type = to_atom(ethertype, TypeInt),
-    {#ether{dst=Dst, src=Src, type=Type}, Type, Rest};
+    {#snap{protocol_id = ProtocolId, type = Type}, Type, Rest};
 decode(arp, Data, _Stack) ->
     decode_arp(Data);
 decode(revarp, Data, _Stack) ->
@@ -217,11 +248,32 @@ decode_tcp_option(Type, Data, Acc) ->
     decode_tcp_option(Rest2, [{Type, Val}|Acc]).
 
 encode(#ether{dst=Dst, src=Src, type=Type}, _Stack, Rest) ->
-    TypeInt = to_int(ethertype, Type),
-    Bin = <<Dst:6/bytes, Src:6/bytes, TypeInt:16, Rest/bytes>>,
+    TypeLen = case Type of
+        llc ->
+            byte_size(Rest);
+        Type ->
+            to_int(ethertype, Type)
+    end,
+    Bin = <<Dst:6/bytes, Src:6/bytes, TypeLen:16, Rest/bytes>>,
     Size = size(Bin),
     Pad = max(60 - Size, 0),
     <<Bin/binary, 0:Pad/unit:8>>;
+encode(#llc{dsap = DSAP, ssap = SSAP, control = Control}, _Stack, Rest) ->
+    ControlBin = case Control of
+        #llc_control_i{ns = NS, pf = PF, nr = NR} ->
+            <<NS:7, 0:1,
+              NR:7, PF:1>>;
+        #llc_control_s{s = S, pf = PF, nr = NR} ->
+            <<0:4, S:2, 0:1, 1:1,
+              NR:7, PF:1>>;
+        #llc_control_u{m = M, pf = PF} ->
+            <<M2:3, M1:2>> = <<M:5>>,
+            <<M2:3, PF:1, M1:2, 1:1, 1:1>>
+    end,
+    <<DSAP:8, SSAP:8, ControlBin/bytes, Rest/bytes>>;
+encode(#snap{protocol_id = ProtocolId, type = Type}, _Stack, Rest) ->
+    TypeInt = to_int(ethertype, Type),
+    <<ProtocolId:24, TypeInt:16, Rest/bytes>>;
 encode(#ip{version=Version, ihl=_IHL, tos=TOS, total_length=_TotalLength,
      id=Id, df=DF, mf=MF, offset=Offset, ttl=TTL, protocol=Protocol,
      checksum=_Checksum, src=Src, dst=Dst, options=Options}, _Stack, Rest) ->

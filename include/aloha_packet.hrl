@@ -23,8 +23,12 @@
 % SUCH DAMAGE.
 
 -type flag() :: 0 | 1.
+-type u2() :: 0..1 bsl 2 - 1.
+-type u5() :: 0..1 bsl 5 - 1.
+-type u7() :: 0..1 bsl 7 - 1.
 -type u8() :: 0..16#ff.
 -type u16() :: 0..16#ffff.
+-type u24() :: 0..16#ffffff.
 -type u32() :: 0..16#ffffffff.
 -type ether_address() :: <<_:48>>.
 -type ether_type() :: atom() | u8().
@@ -34,13 +38,33 @@
 -type ip_port() :: u16().
 -type tcp_seq() :: u32().
 -type icmp_type() :: atom() | u8().
--type checksum16() :: u16 | good | bad | unknown.
+-type checksum16() :: u16() | good | bad | unknown.
 -type plist() :: [atom() | tuple()].
 
 -record(ether, {
     dst :: ether_address(),
     src :: ether_address(),
     type :: ether_type()}).
+-record(llc, {
+    dsap :: u8(),
+    ssap :: u8(),
+    control}).
+% 802-1.2-1998.pdf  5.2 Control field formats
+-record(llc_control_i, {
+    ns :: u7(),
+    pf :: flag(),
+    nr :: u7()}).
+-record(llc_control_s, {
+    s :: u2(),
+    pf :: flag(),
+    nr :: u7()}).
+-record(llc_control_u, {
+    m :: u5(),
+    pf :: flag()}).
+% 802-2001.pdf  10.3 Subnetwork Access Protocol
+-record(snap, {
+    protocol_id = 0 :: u24(),
+    type :: u16()}).
 -record(arp, {hrd = 1, pro = ip, hln = 6, pln = 4, op, sha, spa, tha, tpa}).
 -record(revarp, {hrd = 1, pro = ip, hln = 6, pln = 4, op, sha, spa, tha, tpa}).
 -record(ip, {

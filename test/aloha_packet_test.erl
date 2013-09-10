@@ -217,6 +217,43 @@ ipv6_frag_term() ->
                 more = 0,identification = 2234468961},
      {bin, Payload}].
 
+llc_bin() ->
+    <<1,128,194,0,0,0,70,106,72,87,196,47,0,38,66,66,3,0,0,0,0,0,
+      128,0,70,106,72,87,196,47,0,30,132,128,128,0,70,106,72,87,196,
+      47,128,1,1,0,20,0,2,0,15,0
+      % padding
+      ,0,0,0,0,0,0,0,0>>.
+
+llc_term() ->
+    [#ether{dst = <<1,128,194,0,0,0>>,
+            src = <<70,106,72,87,196,47>>,type = llc},
+     #llc{dsap = 66,ssap = 66,control = #llc_control_u{m = 0,pf = 0}},
+     {bin,<<0,0,0,0,0,128,0,70,106,72,87,196,47,0,30,132,128,
+            128,0,70,106,72,87,196,47,128,1,1,0,20,0,2,0,15,0>>}].
+
+snap_bin() ->
+    <<0,0,0,0,0,0,0,3,71,140,161,179,0,48,170,170,3,0,0,0,8,0,
+      69,0,0,40,0,0,0,0,255,6,189,205,127,0,0,1,127,0,0,1,11,
+      164,39,15,0,0,0,0,0,0,0,0,80,0,0,0,127,47,0,0>>.
+
+snap_term() ->
+    [#ether{dst = <<0,0,0,0,0,0>>,
+            src = <<0,3,71,140,161,179>>,
+            type = llc},
+     #llc{dsap = 170,ssap = 170,
+          control = #llc_control_u{m = 0,pf = 0}},
+     #snap{protocol_id = 0,type = ip},
+     #ip{version = 4,ihl = 5,tos = 0,total_length = 40,id = 0,
+         df = 0,mf = 0,offset = 0,ttl = 255,protocol = tcp,
+         checksum = good,
+         src = <<127,0,0,1>>,
+         dst = <<127,0,0,1>>,
+         options = <<>>},
+     #tcp{src_port = 2980,dst_port = 9999,seqno = 0,ackno = 0,
+          data_offset = 5,urg = 0,ack = 0,psh = 0,rst = 0,syn = 0,
+          fin = 0,window = 0,checksum = good,urgent_pointer = 0,
+          options = []}].
+
 remove_pad(Packet) ->
     lists:keydelete(bin, 1, Packet).
 
@@ -285,4 +322,18 @@ ipv6_frag_encode_test() ->
     ?assertEqual(ipv6_frag_bin(), aloha_packet:encode_packet(ipv6_frag_term())).
 
 ether_pad_test() ->
+    ?assertEqual(60, byte_size(arp_bin())),
     ?assertEqual(arp_bin(), aloha_packet:encode_packet(remove_pad(arp_term()))).
+
+llc_decode_test() ->
+    ?assertEqual(60, byte_size(llc_bin())),
+    ?assertEqual(llc_term(), aloha_packet:decode_packet(llc_bin())).
+
+llc_encode_test() ->
+    ?assertEqual(llc_bin(), aloha_packet:encode_packet(llc_term())).
+
+snap_decode_test() ->
+    ?assertEqual(snap_term(), aloha_packet:decode_packet(snap_bin())).
+
+snap_encode_test() ->
+    ?assertEqual(snap_bin(), aloha_packet:encode_packet(snap_term())).
