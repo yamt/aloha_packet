@@ -227,7 +227,7 @@ llc_bin() ->
 llc_term() ->
     [#ether{dst = <<1,128,194,0,0,0>>,
             src = <<70,106,72,87,196,47>>,type = llc},
-     #llc{dsap = 66,ssap = 66,control = #llc_control_u{m = 0,pf = 0}},
+     #llc{dsap = stp,ssap = stp,control = #llc_control_u{m = 0,pf = 0}},
      {bin,<<0,0,0,0,0,128,0,70,106,72,87,196,47,0,30,132,128,
             128,0,70,106,72,87,196,47,128,1,1,0,20,0,2,0,15,0>>}].
 
@@ -240,7 +240,7 @@ snap_term() ->
     [#ether{dst = <<0,0,0,0,0,0>>,
             src = <<0,3,71,140,161,179>>,
             type = llc},
-     #llc{dsap = 170,ssap = 170,
+     #llc{dsap = snap,ssap = snap,
           control = #llc_control_u{m = 0,pf = 0}},
      #snap{protocol_id = 0,type = ip},
      #ip{version = 4,ihl = 5,tos = 0,total_length = 40,id = 0,

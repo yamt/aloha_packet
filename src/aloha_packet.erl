@@ -56,7 +56,7 @@ decode(ether, Data, _Stack) ->
     end,
     {#ether{dst = Dst, src = Src, type = Type}, Type, Rest3};
 decode(llc, Data, _Stack) ->
-    <<DSAP:8, SSAP:8, Rest/bytes>> = Data,
+    <<DSAPInt:8, SSAPInt:8, Rest/bytes>> = Data,
     {Control, Rest3} = case Rest of
         <<NS:7, 0:1,
           NR:7, PF:1,
@@ -71,8 +71,10 @@ decode(llc, Data, _Stack) ->
             <<M:5>> = <<M2:3, M1:2>>,
             {#llc_control_u{m = M, pf = PF}, Rest2}
     end,
+    DSAP = to_atom(sap, DSAPInt),
+    SSAP = to_atom(sap, SSAPInt),
     Next = case {DSAP, SSAP, Control} of
-        {16#aa, 16#aa, #llc_control_u{m = 0, pf = 0}} -> snap;
+        {snap, snap, #llc_control_u{m = 0, pf = 0}} -> snap;
         _ -> bin
     end,
     {#llc{dsap = DSAP, ssap = SSAP, control = Control}, Next, Rest3};
@@ -270,7 +272,9 @@ encode(#llc{dsap = DSAP, ssap = SSAP, control = Control}, _Stack, Rest) ->
             <<M2:3, M1:2>> = <<M:5>>,
             <<M2:3, PF:1, M1:2, 1:1, 1:1>>
     end,
-    <<DSAP:8, SSAP:8, ControlBin/bytes, Rest/bytes>>;
+    DSAPInt = to_int(sap, DSAP),
+    SSAPInt = to_int(sap, SSAP),
+    <<DSAPInt:8, SSAPInt:8, ControlBin/bytes, Rest/bytes>>;
 encode(#snap{protocol_id = ProtocolId, type = Type}, _Stack, Rest) ->
     TypeInt = to_int(ethertype, Type),
     <<ProtocolId:24, TypeInt:16, Rest/bytes>>;

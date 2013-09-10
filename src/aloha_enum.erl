@@ -69,3 +69,11 @@
                     {sack_permitted, 4},
                     {sack, 5},
                     {timestamp, 8}]}).
+
+% http://standards.ieee.org/develop/regauth/llc/public.html
+% http://publibz.boulder.ibm.com/cgi-bin/bookmgr_OS390/BOOKS/BK8P7001/CCONTENTS
+% http://publibz.boulder.ibm.com/cgi-bin/bookmgr_OS390/BOOKS/BK8P7001/2.7.2?DT=19960430153053
+-enum({sap, [{stp, 16#42},
+             {snap, 16#aa},
+             {netware, 16#e0},
+             {netbios, 16#f0}]}).
