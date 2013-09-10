@@ -61,6 +61,37 @@
 -record(llc_control_u, {
     m :: u5(),
     pf :: flag()}).
+% 802.1D-2004.pdf 9.3.1
+-record(configuration_bpdu, {
+    topology_change_ack :: flag(),
+    topology_change :: flag(),
+    root_identifier,
+    root_path_cost,
+    bridge_identifier,
+    port_identifier,
+    message_age,
+    max_age,
+    hello_time,
+    forward_delay}).
+% 802.1D-2004.pdf 9.3.2
+-record(topology_change_notification_bpdu, {}).
+% 802.1D-2004.pdf 9.3.3
+-record(rst_bpdu, {
+    topology_change_ack :: flag(),
+    agreement :: flag(),
+    forwarding :: flag(),
+    learning :: flag(),
+    port_role :: u2(),
+    proposal :: flag(),
+    topology_change :: flag(),
+    root_identifier,
+    root_path_cost,
+    bridge_identifier,
+    port_identifier,
+    message_age,
+    max_age,
+    hello_time,
+    forward_delay}).
 % 802-2001.pdf  10.3 Subnetwork Access Protocol
 -record(snap, {
     protocol_id = 0 :: u24(),

@@ -227,9 +227,15 @@ llc_bin() ->
 llc_term() ->
     [#ether{dst = <<1,128,194,0,0,0>>,
             src = <<70,106,72,87,196,47>>,type = llc},
-     #llc{dsap = stp,ssap = stp,control = #llc_control_u{m = 0,pf = 0}},
-     {bin,<<0,0,0,0,0,128,0,70,106,72,87,196,47,0,30,132,128,
-            128,0,70,106,72,87,196,47,128,1,1,0,20,0,2,0,15,0>>}].
+     #llc{dsap = bstp,ssap = bstp,control = #llc_control_u{m = 0,pf = 0}},
+     #configuration_bpdu{topology_change_ack = 0,
+                         topology_change = 0,
+                         root_identifier = <<128,0,70,106,72,87,196,47>>,
+                         root_path_cost = 2000000,
+                         bridge_identifier = <<128,0,70,106,72,87,196,47>>,
+                         port_identifier = 32769,message_age = 256,
+                         max_age = 5120,
+                         hello_time = 512,forward_delay = 3840}].
 
 snap_bin() ->
     <<0,0,0,0,0,0,0,3,71,140,161,179,0,48,170,170,3,0,0,0,8,0,
@@ -326,6 +332,7 @@ ether_pad_test() ->
     ?assertEqual(arp_bin(), aloha_packet:encode_packet(remove_pad(arp_term()))).
 
 llc_decode_test() ->
+    io:format("~p", [aloha_packet:decode_packet(llc_bin())]),
     ?assertEqual(60, byte_size(llc_bin())),
     ?assertEqual(llc_term(), aloha_packet:decode_packet(llc_bin())).
 

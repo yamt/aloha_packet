@@ -75,6 +75,7 @@ decode(llc, Data, _Stack) ->
     SSAP = to_atom(sap, SSAPInt),
     Next = case {DSAP, SSAP, Control} of
         {snap, snap, #llc_control_u{m = 0, pf = 0}} -> snap;
+        {bstp, _, _} -> bstp;
         _ -> bin
     end,
     {#llc{dsap = DSAP, ssap = SSAP, control = Control}, Next, Rest3};
@@ -82,6 +83,59 @@ decode(snap, Data, _Stack) ->
     <<ProtocolId:24, TypeInt:16, Rest/bytes>> = Data,
     Type = to_atom(ethertype, TypeInt),
     {#snap{protocol_id = ProtocolId, type = Type}, Type, Rest};
+decode(bstp, <<0:16, 0:8, 0:8, Data/bytes>>, _Stack) ->
+    <<TopologyChangeAck:1, 0:6, TopologyChange:1,  % Octet 5
+      RootIdentifier:8/bytes,
+      RootPathCost:32,
+      BridgeIdentifier:8/bytes,
+      PortIdentifier:16,
+      MessageAge:16,
+      MaxAge:16,
+      HelloTime:16,
+      ForwardDelay:16,
+      Rest/bytes>> = Data,
+    {#configuration_bpdu{
+        topology_change_ack = TopologyChangeAck,
+        topology_change = TopologyChange,
+        root_identifier = RootIdentifier,
+        root_path_cost = RootPathCost,
+        bridge_identifier = BridgeIdentifier,
+        port_identifier = PortIdentifier,
+        message_age = MessageAge,
+        max_age = MaxAge,
+        hello_time = HelloTime,
+        forward_delay = ForwardDelay}, bin, Rest};
+decode(bstp, <<0:16, 0:8, 8:8, Data/bytes>>, _Stack) ->
+    {#topology_change_notification_bpdu{}, bin, Data};
+decode(bstp, <<0:16, 2:8, 2:8, Data/bytes>>, _Stack) ->
+    <<TopologyChangeAck:1, Agreement:1, Forwarding:1, Learning:1, PortRole:2,
+      Proposal:1, TopologyChange:1,  % Octet 5
+      RootIdentifier:8/bytes,
+      RootPathCost:32,
+      BridgeIdentifier:8/bytes,
+      PortIdentifier:16,
+      MessageAge:16,
+      MaxAge:16,
+      HelloTime:16,
+      ForwardDelay:16,
+      0:16,  % Version 1 Length
+      Rest/bytes>> = Data,
+    {#rst_bpdu{
+        topology_change_ack = TopologyChangeAck,
+        agreement = Agreement,
+        forwarding = Forwarding,
+        learning = Learning,
+        port_role = PortRole,
+        proposal = Proposal,
+        topology_change = TopologyChange,
+        root_identifier = RootIdentifier,
+        root_path_cost = RootPathCost,
+        bridge_identifier = BridgeIdentifier,
+        port_identifier = PortIdentifier,
+        message_age = MessageAge,
+        max_age = MaxAge,
+        hello_time = HelloTime,
+        forward_delay = ForwardDelay}, bin, Rest};
 decode(arp, Data, _Stack) ->
     decode_arp(Data);
 decode(revarp, Data, _Stack) ->
@@ -278,6 +332,58 @@ encode(#llc{dsap = DSAP, ssap = SSAP, control = Control}, _Stack, Rest) ->
 encode(#snap{protocol_id = ProtocolId, type = Type}, _Stack, Rest) ->
     TypeInt = to_int(ethertype, Type),
     <<ProtocolId:24, TypeInt:16, Rest/bytes>>;
+encode(#configuration_bpdu{
+            topology_change_ack = TopologyChangeAck,
+            topology_change = TopologyChange,
+            root_identifier = RootIdentifier,
+            root_path_cost = RootPathCost,
+            bridge_identifier = BridgeIdentifier,
+            port_identifier = PortIdentifier,
+            message_age = MessageAge,
+            max_age = MaxAge,
+            hello_time = HelloTime,
+            forward_delay = ForwardDelay}, _Stack, Rest) ->
+    <<0:16, 0:8, 0:8,
+      TopologyChangeAck:1, 0:6, TopologyChange:1,  % Octet 5
+      RootIdentifier:8/bytes,
+      RootPathCost:32,
+      BridgeIdentifier:8/bytes,
+      PortIdentifier:16,
+      MessageAge:16,
+      MaxAge:16,
+      HelloTime:16,
+      ForwardDelay:16,
+      Rest/bytes>>;
+encode(#topology_change_notification_bpdu{}, _Stack, Rest) ->
+    <<0:16, 0:8, 8:8, Rest/bytes>>;
+encode(#rst_bpdu{
+            topology_change_ack = TopologyChangeAck,
+            agreement = Agreement,
+            forwarding = Forwarding,
+            learning = Learning,
+            port_role = PortRole,
+            proposal = Proposal,
+            topology_change = TopologyChange,
+            root_identifier = RootIdentifier,
+            root_path_cost = RootPathCost,
+            bridge_identifier = BridgeIdentifier,
+            port_identifier = PortIdentifier,
+            message_age = MessageAge,
+            max_age = MaxAge,
+            hello_time = HelloTime,
+            forward_delay = ForwardDelay}, _Stack, Rest) ->
+    <<0:16, 2:8, 2:8,
+      TopologyChangeAck:1, Agreement:1, Forwarding:1, Learning:1, PortRole:2,
+      Proposal:1, TopologyChange:1,  % Octet 5
+      RootIdentifier:8/bytes,
+      RootPathCost:32,
+      BridgeIdentifier:8/bytes,
+      PortIdentifier:16,
+      MessageAge:16,
+      MaxAge:16,
+      HelloTime:16,
+      ForwardDelay:16,
+      Rest/bytes>>;
 encode(#ip{version=Version, ihl=_IHL, tos=TOS, total_length=_TotalLength,
      id=Id, df=DF, mf=MF, offset=Offset, ttl=TTL, protocol=Protocol,
      checksum=_Checksum, src=Src, dst=Dst, options=Options}, _Stack, Rest) ->
