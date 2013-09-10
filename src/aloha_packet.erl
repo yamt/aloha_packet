@@ -108,8 +108,8 @@ decode(bstp, <<0:16, 0:8, 0:8, Data/bytes>>, _Stack) ->
 decode(bstp, <<0:16, 0:8, 8:8, Data/bytes>>, _Stack) ->
     {#topology_change_notification_bpdu{}, bin, Data};
 decode(bstp, <<0:16, 2:8, 2:8, Data/bytes>>, _Stack) ->
-    <<TopologyChangeAck:1, Agreement:1, Forwarding:1, Learning:1, PortRole:2,
-      Proposal:1, TopologyChange:1,  % Octet 5
+    <<TopologyChangeAck:1, Agreement:1, Forwarding:1, Learning:1,
+      PortRoleInt:2, Proposal:1, TopologyChange:1,  % Octet 5
       RootIdentifier:8/bytes,
       RootPathCost:32,
       BridgeIdentifier:8/bytes,
@@ -120,6 +120,7 @@ decode(bstp, <<0:16, 2:8, 2:8, Data/bytes>>, _Stack) ->
       ForwardDelay:16,
       0:16,  % Version 1 Length
       Rest/bytes>> = Data,
+    PortRole = to_atom(port_role, PortRoleInt),
     {#rst_bpdu{
         topology_change_ack = TopologyChangeAck,
         agreement = Agreement,
@@ -372,9 +373,10 @@ encode(#rst_bpdu{
             max_age = MaxAge,
             hello_time = HelloTime,
             forward_delay = ForwardDelay}, _Stack, Rest) ->
+    PortRoleInt = to_int(port_role, PortRole),
     <<0:16, 2:8, 2:8,
-      TopologyChangeAck:1, Agreement:1, Forwarding:1, Learning:1, PortRole:2,
-      Proposal:1, TopologyChange:1,  % Octet 5
+      TopologyChangeAck:1, Agreement:1, Forwarding:1, Learning:1,
+      PortRoleInt:2, Proposal:1, TopologyChange:1,  % Octet 5
       RootIdentifier:8/bytes,
       RootPathCost:32,
       BridgeIdentifier:8/bytes,

@@ -85,3 +85,9 @@
              {snap, 16#aa},
              {netware, 16#e0},
              {netbios, 16#f0}]}).
+
+% 802.1D-2004.pdf 9.2.9
+-enum({port_role, [{unknown, 0},
+                   {alternate, 1},  % alternate or backup
+                   {root, 2},
+                   {designated, 3}]}).
