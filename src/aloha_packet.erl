@@ -23,29 +23,38 @@
 % SUCH DAMAGE.
 
 -module(aloha_packet).
--export([encode_packet/1]).
--export([decode_packet/1, decode/3]).
+-export([encode_packet/1, encode_packet/2]).
+-export([decode_packet/1, decode_packet/2, decode/3, decode/4]).
 
 -include("aloha_packet.hrl").
 
 encode_packet(List) ->
-    encode_packet(lists:reverse(List), <<>>).
+    encode_packet(List, []).
 
-encode_packet([], Acc) ->
+encode_packet(List, Opts) ->
+    encode_packet(lists:reverse(List), Opts, <<>>).
+
+encode_packet([], _Opts, Acc) ->
     Acc;
-encode_packet([H|Rest], Acc) ->
-    encode_packet(Rest, encode(H, Rest, Acc)).
+encode_packet([H|Rest], Opts, Acc) ->
+    encode_packet(Rest, Opts, encode(H, Rest, Acc, Opts)).
 
 decode_packet(Data) ->
-    decode_packet(ether, Data, []).
+    decode_packet(Data, []).
 
-decode_packet(_Type, <<>>, Acc) ->
+decode_packet(Data, Opts) ->
+    decode_packet(ether, Data, Opts, []).
+
+decode_packet(_Type, <<>>, _Opts, Acc) ->
     lists:reverse(Acc);
-decode_packet(Type, Data, Acc) ->
-    {Rec, NextType, Rest} = decode(Type, Data, Acc),
-    decode_packet(NextType, Rest, [Rec|Acc]).
+decode_packet(Type, Data, Opts, Acc) ->
+    {Rec, NextType, Rest} = decode(Type, Data, Acc, Opts),
+    decode_packet(NextType, Rest, Opts, [Rec|Acc]).
 
-decode(ether, Data, _Stack) ->
+decode(Proto, Data, Stack) ->
+    decode(Proto, Data, Stack, []).
+
+decode(ether, Data, _Stack, _Opts) ->
     <<Dst:6/bytes, Src:6/bytes, TypeLen:16, Rest/bytes>> = Data,
     {Type, Rest3} = case TypeLen >= 16#5dc of
         true ->
@@ -55,7 +64,7 @@ decode(ether, Data, _Stack) ->
             {llc, Rest2}
     end,
     {#ether{dst = Dst, src = Src, type = Type}, Type, Rest3};
-decode(llc, Data, _Stack) ->
+decode(llc, Data, _Stack, _Opts) ->
     <<DSAPInt:8, SSAPInt:8, Rest/bytes>> = Data,
     {Control, Rest3} = case Rest of
         <<NS:7, 0:1,
@@ -79,11 +88,11 @@ decode(llc, Data, _Stack) ->
         _ -> bin
     end,
     {#llc{dsap = DSAP, ssap = SSAP, control = Control}, Next, Rest3};
-decode(snap, Data, _Stack) ->
+decode(snap, Data, _Stack, _Opts) ->
     <<ProtocolId:24, TypeInt:16, Rest/bytes>> = Data,
     Type = to_atom(ethertype, TypeInt),
     {#snap{protocol_id = ProtocolId, type = Type}, Type, Rest};
-decode(bstp, <<0:16, 0:8, 0:8, Data/bytes>>, _Stack) ->
+decode(bstp, <<0:16, 0:8, 0:8, Data/bytes>>, _Stack, _Opts) ->
     <<TopologyChangeAck:1, 0:6, TopologyChange:1,  % Octet 5
       RootIdentifier:8/bytes,
       RootPathCost:32,
@@ -105,9 +114,9 @@ decode(bstp, <<0:16, 0:8, 0:8, Data/bytes>>, _Stack) ->
         max_age = MaxAge,
         hello_time = HelloTime,
         forward_delay = ForwardDelay}, bin, Rest};
-decode(bstp, <<0:16, 0:8, 8:8, Data/bytes>>, _Stack) ->
+decode(bstp, <<0:16, 0:8, 8:8, Data/bytes>>, _Stack, _Opts) ->
     {#topology_change_notification_bpdu{}, bin, Data};
-decode(bstp, <<0:16, 2:8, 2:8, Data/bytes>>, _Stack) ->
+decode(bstp, <<0:16, 2:8, 2:8, Data/bytes>>, _Stack, _Opts) ->
     <<TopologyChangeAck:1, Agreement:1, Forwarding:1, Learning:1,
       PortRoleInt:2, Proposal:1, TopologyChange:1,  % Octet 5
       RootIdentifier:8/bytes,
@@ -137,13 +146,13 @@ decode(bstp, <<0:16, 2:8, 2:8, Data/bytes>>, _Stack) ->
         max_age = MaxAge,
         hello_time = HelloTime,
         forward_delay = ForwardDelay}, bin, Rest};
-decode(arp, Data, _Stack) ->
+decode(arp, Data, _Stack, _Opts) ->
     decode_arp(Data);
-decode(revarp, Data, _Stack) ->
+decode(revarp, Data, _Stack, _Opts) ->
     % compatible with arp
     Result = decode_arp(Data),
     setelement(1, Result, revarp);
-decode(ip, Data, _Stack) ->
+decode(ip, Data, _Stack, _Opts) ->
     <<Version:4, IHL:4, TOS:8, TotalLength:16,
       Id:16, _:1, DF:1, MF:1, Offset:13,
       TTL:8, ProtocolInt:8, _Checksum:16,
@@ -165,7 +174,7 @@ decode(ip, Data, _Stack) ->
     {#ip{version=Version, ihl=IHL, tos=TOS, total_length=TotalLength,
      id=Id, df=DF, mf=MF, offset=Offset, ttl=TTL, protocol=Protocol,
      checksum=Checksum, src=Src, dst=Dst, options=Options}, Next, Rest2};
-decode(icmp, Data, _Stack) ->
+decode(icmp, Data, _Stack, _Opts) ->
     <<Type:8, Code:8, _Checksum:16, Rest/bytes>> = Data,
     Checksum = case checksum(Data) of
         0 -> good;
@@ -173,7 +182,7 @@ decode(icmp, Data, _Stack) ->
     end,
     {#icmp{type=to_atom(icmp_type, Type), code=Code, checksum=Checksum,
            data=Rest}, bin, <<>>};
-decode(icmpv6, Data, Stack) ->
+decode(icmpv6, Data, Stack, _Opts) ->
     <<TypeInt:8, Code:8, _Checksum:16, Rest/bytes>> = Data,
     Ip = find_ip(Stack),
     Phdr = phdr(Ip, byte_size(Data)),
@@ -184,7 +193,7 @@ decode(icmpv6, Data, Stack) ->
     Type = to_atom(icmpv6_type, TypeInt),
     {#icmpv6{type = Type, code = Code, checksum = Checksum,
              data = decode_icmpv6(Type, Rest)}, bin, <<>>};
-decode(ipv6, Data, _Stack) ->
+decode(ipv6, Data, _Stack, _Opts) ->
     <<Version:4, TrafficClass:8, FlowLabel:20,
       PayloadLength:16, NextHeaderInt:8, HopLimit:8,
       Src:16/bytes, Dst:16/bytes, Rest/bytes>> = Data,
@@ -193,7 +202,7 @@ decode(ipv6, Data, _Stack) ->
      flow_label=FlowLabel, payload_length=PayloadLength,
      next_header=NextHeader, hop_limit=HopLimit, src=Src, dst=Dst},
      NextHeader, Rest};
-decode(ipv6_frag, Data, _Stack) ->
+decode(ipv6_frag, Data, _Stack, _Opts) ->
     <<NextHeaderInt:8, _Reserved:8, FragmentOffset:13, _Res:2, More:1,
       Identification:32, Rest/bytes>> = Data,
     NextHeader = to_atom(ip_proto, NextHeaderInt),
@@ -201,7 +210,7 @@ decode(ipv6_frag, Data, _Stack) ->
                 fragment_offset = FragmentOffset, more = More,
                 identification = Identification},
      bin, Rest};
-decode(tcp, Data, Stack) ->
+decode(tcp, Data, Stack, _Opts) ->
     <<SrcPort:16, DstPort:16,
       SeqNo:32,
       AckNo:32,
@@ -225,7 +234,7 @@ decode(tcp, Data, Stack) ->
                urg=URG, ack=ACK, psh=PSH, rst=RST, syn=SYN, fin=FIN,
                window=Window, checksum=Checksum, urgent_pointer=UrgentPointer,
                options=decode_tcp_option(Options)}, bin, Rest2};
-decode(Type, Data, _Stack) ->
+decode(Type, Data, _Stack, _Opts) ->
     {{Type, Data}, bin, <<>>}.
 
 find_ip([]) ->
@@ -304,7 +313,7 @@ decode_tcp_option(Type, Data, Acc) ->
     <<Val:Len/bytes, Rest2/bytes>> = Rest,
     decode_tcp_option(Rest2, [{Type, Val}|Acc]).
 
-encode(#ether{dst=Dst, src=Src, type=Type}, _Stack, Rest) ->
+encode(#ether{dst=Dst, src=Src, type=Type}, _Stack, Rest, _Opts) ->
     TypeLen = case Type of
         llc ->
             byte_size(Rest);
@@ -315,7 +324,8 @@ encode(#ether{dst=Dst, src=Src, type=Type}, _Stack, Rest) ->
     Size = size(Bin),
     Pad = max(60 - Size, 0),
     <<Bin/binary, 0:Pad/unit:8>>;
-encode(#llc{dsap = DSAP, ssap = SSAP, control = Control}, _Stack, Rest) ->
+encode(#llc{dsap = DSAP, ssap = SSAP, control = Control}, _Stack, Rest,
+       _Opts) ->
     ControlBin = case Control of
         #llc_control_i{ns = NS, pf = PF, nr = NR} ->
             <<NS:7, 0:1,
@@ -330,7 +340,7 @@ encode(#llc{dsap = DSAP, ssap = SSAP, control = Control}, _Stack, Rest) ->
     DSAPInt = to_int(sap, DSAP),
     SSAPInt = to_int(sap, SSAP),
     <<DSAPInt:8, SSAPInt:8, ControlBin/bytes, Rest/bytes>>;
-encode(#snap{protocol_id = ProtocolId, type = Type}, _Stack, Rest) ->
+encode(#snap{protocol_id = ProtocolId, type = Type}, _Stack, Rest, _Opts) ->
     TypeInt = to_int(ethertype, Type),
     <<ProtocolId:24, TypeInt:16, Rest/bytes>>;
 encode(#configuration_bpdu{
@@ -343,7 +353,7 @@ encode(#configuration_bpdu{
             message_age = MessageAge,
             max_age = MaxAge,
             hello_time = HelloTime,
-            forward_delay = ForwardDelay}, _Stack, Rest) ->
+            forward_delay = ForwardDelay}, _Stack, Rest, _Opts) ->
     <<0:16, 0:8, 0:8,
       TopologyChangeAck:1, 0:6, TopologyChange:1,  % Octet 5
       RootIdentifier:8/bytes,
@@ -355,7 +365,7 @@ encode(#configuration_bpdu{
       HelloTime:16,
       ForwardDelay:16,
       Rest/bytes>>;
-encode(#topology_change_notification_bpdu{}, _Stack, Rest) ->
+encode(#topology_change_notification_bpdu{}, _Stack, Rest, _Opts) ->
     <<0:16, 0:8, 8:8, Rest/bytes>>;
 encode(#rst_bpdu{
             topology_change_ack = TopologyChangeAck,
@@ -372,7 +382,7 @@ encode(#rst_bpdu{
             message_age = MessageAge,
             max_age = MaxAge,
             hello_time = HelloTime,
-            forward_delay = ForwardDelay}, _Stack, Rest) ->
+            forward_delay = ForwardDelay}, _Stack, Rest, _Opts) ->
     PortRoleInt = to_int(port_role, PortRole),
     <<0:16, 2:8, 2:8,
       TopologyChangeAck:1, Agreement:1, Forwarding:1, Learning:1,
@@ -388,8 +398,9 @@ encode(#rst_bpdu{
       0:16,  % Version 1 Length
       Rest/bytes>>;
 encode(#ip{version=Version, ihl=_IHL, tos=TOS, total_length=_TotalLength,
-     id=Id, df=DF, mf=MF, offset=Offset, ttl=TTL, protocol=Protocol,
-     checksum=_Checksum, src=Src, dst=Dst, options=Options}, _Stack, Rest) ->
+           id=Id, df=DF, mf=MF, offset=Offset, ttl=TTL, protocol=Protocol,
+           checksum=_Checksum, src=Src, dst=Dst, options=Options},
+      _Stack, Rest, _Opts) ->
     ProtocolInt = to_int(ip_proto, Protocol),
     OptLen = byte_size(Options),
     OptPadLen = (-OptLen) band 3,
@@ -406,19 +417,19 @@ encode(#ip{version=Version, ihl=_IHL, tos=TOS, total_length=_TotalLength,
       Src:4/bytes, Dst:4/bytes, Options/bytes, 0:OptPadLen/unit:8,
       Rest/bytes>>;
 encode(#arp{hrd=Hrd, pro=Pro, hln=Hln, pln=Pln, op=Op,
-       sha=Sha, spa=Spa, tha=Tha, tpa=Tpa}, _Stack, Rest) ->
+            sha=Sha, spa=Spa, tha=Tha, tpa=Tpa}, _Stack, Rest, _Opts) ->
     ProInt = to_int(ethertype, Pro),
     OpInt = to_int(arp_op, Op),
     <<Hrd:16, ProInt:16, Hln:8, Pln:8, OpInt:16,
       Sha:Hln/bytes, Spa:Pln/bytes, Tha:Hln/bytes, Tpa:Pln/bytes, Rest/bytes>>;
 encode(#icmp{type=Type, code=Code, checksum=_Checksum, data=Data},
-       _Stack, Rest) ->
+       _Stack, Rest, _Opts) ->
     TypeInt = to_int(icmp_type, Type),
     Pkt = <<TypeInt:8, Code:8, 0:16, Data/bytes>>,
     Checksum = checksum(Pkt),
     <<TypeInt:8, Code:8, Checksum:16, Data/bytes, Rest/bytes>>;
 encode(#icmpv6{type=Type, code=Code, checksum=_Checksum, data=Data},
-       Stack, Rest) ->
+       Stack, Rest, _Opts) ->
     TypeInt = to_int(icmpv6_type, Type),
     DataBin = encode_icmpv6(Data),
     Pkt = <<TypeInt:8, Code:8, 0:16, DataBin/bytes>>,
@@ -429,15 +440,15 @@ encode(#icmpv6{type=Type, code=Code, checksum=_Checksum, data=Data},
 encode(#ipv6{version = Version, traffic_class = TrafficClass,
              flow_label = FlowLabel,
              next_header = NextHeader, hop_limit = HopLimit,
-             src = Src, dst = Dst}, _Stack, Rest) ->
+             src = Src, dst = Dst}, _Stack, Rest, _Opts) ->
     PayloadLength = byte_size(Rest),
     NextHeaderInt = to_int(ip_proto, NextHeader),
     <<Version:4, TrafficClass:8, FlowLabel:20,
       PayloadLength:16, NextHeaderInt:8, HopLimit:8,
       Src:16/bytes, Dst:16/bytes, Rest/bytes>>;
 encode(#ipv6_frag{next_header = NextHeader,
-                   fragment_offset = FragmentOffset, more = More,
-                   identification = Identification}, _Stack, Rest) ->
+                  fragment_offset = FragmentOffset, more = More,
+                  identification = Identification}, _Stack, Rest, _Opts) ->
     NextHeaderInt = to_int(ip_proto, NextHeader),
     <<NextHeaderInt:8, 0:8, FragmentOffset:13, 0:2, More:1,
       Identification:32, Rest/bytes>>;
@@ -445,7 +456,8 @@ encode(#tcp{src_port=SrcPort, dst_port=DstPort,
             seqno=SeqNo, ackno=AckNo, data_offset=_DataOffset,
             urg=URG, ack=ACK, psh=PSH, rst=RST, syn=SYN, fin=FIN,
             window=Window, checksum=_Checksum,
-            urgent_pointer=UrgentPointer, options=OptionsTerm}, Stack, Rest) ->
+            urgent_pointer=UrgentPointer, options=OptionsTerm},
+       Stack, Rest, _Opts) ->
     [Ip|_] = Stack,
     Options = encode_tcp_option(OptionsTerm),
     OptLen = size(Options),
@@ -460,9 +472,9 @@ encode(#tcp{src_port=SrcPort, dst_port=DstPort,
       DataOffset:4, 0:6, URG:1, ACK:1, PSH:1, RST:1, SYN:1, FIN:1, Window:16,
       Checksum:16, UrgentPointer:16, Options:OptLen/bytes, 0:OptPadLen/unit:8,
       Rest/bytes>>;
-encode({bin, Bin}, _Stack, Rest) ->
+encode({bin, Bin}, _Stack, Rest, _Opts) ->
     <<Bin/bytes, Rest/bytes>>;
-encode(Bin, _Stack, Rest) when is_binary(Bin) ->
+encode(Bin, _Stack, Rest, _Opts) when is_binary(Bin) ->
     <<Bin/bytes, Rest/bytes>>.
 
 encode_icmpv6(Bin) when is_binary(Bin) ->
