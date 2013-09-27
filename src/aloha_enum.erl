@@ -70,13 +70,15 @@
 % RFC 793
 % RFC 1323
 % RFC 2018
+% RFC 2385 TCP MD5 Signature Option
 -enum({tcp_option, [{eol, 0},
                     {noop, 1},
                     {mss, 2},
                     {wscale, 3},
                     {sack_permitted, 4},
                     {sack, 5},
-                    {timestamp, 8}]}).
+                    {timestamp, 8},
+                    {md5, 19}]}).
 
 % http://standards.ieee.org/develop/regauth/llc/public.html
 % http://publibz.boulder.ibm.com/cgi-bin/bookmgr_OS390/BOOKS/BK8P7001/CCONTENTS
