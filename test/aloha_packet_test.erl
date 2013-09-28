@@ -24,6 +24,8 @@
 
 -module(aloha_packet_test).
 
+-export([lookup_key/1]).
+
 -include("aloha_packet.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
@@ -337,12 +339,18 @@ tcp3_decode_test() ->
 tcp3_encode_test() ->
     ?assertEqual(tcp_bin3(), aloha_packet:encode_packet(tcp_term3())).
 
+lookup_key(_Ip) ->
+    <<"hoge">>.
+
 tcp_md5_decode_test() ->
-    io:format("~p", [aloha_packet:decode_packet(tcp_md5_bin())]),
-    ?assertEqual(tcp_md5_term(), aloha_packet:decode_packet(tcp_md5_bin())).
+    Opts = [{lookup_key, {?MODULE, lookup_key, []}}],
+    ?assertEqual(tcp_md5_term(),
+                 aloha_packet:decode_packet(tcp_md5_bin(), Opts)).
 
 tcp_md5_encode_test() ->
-    ?assertEqual(tcp_md5_bin(), aloha_packet:encode_packet(tcp_md5_term())).
+    Opts = [{lookup_key, {?MODULE, lookup_key, []}}],
+    ?assertEqual(tcp_md5_bin(),
+                 aloha_packet:encode_packet(tcp_md5_term(), Opts)).
 
 arp_decode_test() ->
     ?assertEqual(arp_term(), aloha_packet:decode_packet(arp_bin())).

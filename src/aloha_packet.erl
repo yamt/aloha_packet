@@ -513,8 +513,13 @@ check_md5sig(Options, Ip, Phdr, Hdr, Rest, Opts) ->
             lists:keyreplace(md5, 1, Options, {md5, SigOk})
     end.
 
-lookup_key(_Ip, md5, _Opts) ->
-    <<"hoge">>.  % XXX dummy impl
+lookup_key(Ip, md5, Opts) ->
+    case proplists:get_value(lookup_key, Opts) of
+        undefined ->
+            error(badarg);  % no key
+        {M,F,A} ->
+            apply(M, F, [Ip|A])
+    end.
 
 encode_icmpv6(Bin) when is_binary(Bin) ->
     Bin;
