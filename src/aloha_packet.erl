@@ -210,7 +210,7 @@ decode(ipv6_frag, Data, _Stack, _Opts) ->
                 fragment_offset = FragmentOffset, more = More,
                 identification = Identification},
      bin, Rest};
-decode(tcp, Data, Stack, _Opts) ->
+decode(tcp, Data, Stack, Opts) ->
     <<SrcPort:16, DstPort:16,
       SeqNo:32,
       AckNo:32,
@@ -218,22 +218,30 @@ decode(tcp, Data, Stack, _Opts) ->
       _Checksum:16, UrgentPointer:16,
       Rest/bytes>> = Data,
     OptLen = (DataOffset - 5) * 4,
-    <<Options:OptLen/bytes, Rest2/bytes>> = Rest,
-    Checksum = case find_ip(Stack) of
+    <<OptionsBin:OptLen/bytes, Rest2/bytes>> = Rest,
+    Options = decode_tcp_option(OptionsBin),
+    {Checksum, Options2} = case find_ip(Stack) of
         none ->
-            unknown;
+            {unknown, Options};
         Ip ->
             Phdr = phdr(Ip, DataOffset * 4 + size(Rest2)),
-            case checksum(<<Phdr/bytes, Data/bytes>>) of
+            Hdr = <<SrcPort:16, DstPort:16,
+                    SeqNo:32,
+                    AckNo:32,
+                    DataOffset:4, 0:6, URG:1, ACK:1, PSH:1, RST:1, SYN:1,
+                        FIN:1, Window:16,
+                    0:16, UrgentPointer:16>>,
+            {case checksum(<<Phdr/bytes, Data/bytes>>) of
                 0 -> good;
                 _ -> bad
-            end
+            end,
+            check_md5sig(Options, Ip, Phdr, Hdr, Rest2, Opts)}
     end,
     {#tcp{src_port=SrcPort, dst_port=DstPort,
                seqno=SeqNo, ackno=AckNo, data_offset=DataOffset,
                urg=URG, ack=ACK, psh=PSH, rst=RST, syn=SYN, fin=FIN,
                window=Window, checksum=Checksum, urgent_pointer=UrgentPointer,
-               options=decode_tcp_option(Options)}, bin, Rest2};
+               options=Options2}, bin, Rest2};
 decode(Type, Data, _Stack, _Opts) ->
     {{Type, Data}, bin, <<>>}.
 
@@ -310,7 +318,8 @@ decode_tcp_option(timestamp, Data, Acc) ->
     decode_tcp_option(Rest, [{timestamp, Val1, Val2}|Acc]);
 decode_tcp_option(Type, Data, Acc) ->
     <<Len:8, Rest/bytes>> = Data,
-    <<Val:Len/bytes, Rest2/bytes>> = Rest,
+    ValLen = Len - 2,
+    <<Val:ValLen/bytes, Rest2/bytes>> = Rest,
     decode_tcp_option(Rest2, [{Type, Val}|Acc]).
 
 encode(#ether{dst=Dst, src=Src, type=Type}, _Stack, Rest, _Opts) ->
@@ -456,26 +465,56 @@ encode(#tcp{src_port=SrcPort, dst_port=DstPort,
             seqno=SeqNo, ackno=AckNo, data_offset=_DataOffset,
             urg=URG, ack=ACK, psh=PSH, rst=RST, syn=SYN, fin=FIN,
             window=Window, checksum=_Checksum,
-            urgent_pointer=UrgentPointer, options=OptionsTerm},
-       Stack, Rest, _Opts) ->
+            urgent_pointer=UrgentPointer, options=Options},
+       Stack, Rest, Opts) ->
     [Ip|_] = Stack,
-    Options = encode_tcp_option(OptionsTerm),
-    OptLen = size(Options),
+    OptionsBin = encode_tcp_option(Options),
+    OptLen = size(OptionsBin),
     OptPadLen = (-OptLen) band 3,
     DataOffset = (OptLen + OptPadLen) div 4 + 5,
     Phdr = phdr(Ip, DataOffset * 4 + size(Rest)),
     Hdr = <<SrcPort:16, DstPort:16, SeqNo:32, AckNo:32,
       DataOffset:4, 0:6, URG:1, ACK:1, PSH:1, RST:1, SYN:1, FIN:1, Window:16,
-      0:16, UrgentPointer:16, Options:OptLen/bytes, 0:OptPadLen/unit:8>>,
-    Checksum = checksum(<<Phdr/bytes, Hdr/bytes, Rest/bytes>>),
+      0:16, UrgentPointer:16>>,
+    OptionsBin2 = fill_md5sig(OptionsBin, Options, Ip, Phdr, Hdr, Rest, Opts),
+    OptionsWithPad = <<OptionsBin2:OptLen/bytes, 0:OptPadLen/unit:8>>,
+    Checksum = checksum(<<Phdr/bytes, Hdr/bytes, OptionsWithPad/bytes,
+                          Rest/bytes>>),
     <<SrcPort:16, DstPort:16, SeqNo:32, AckNo:32,
       DataOffset:4, 0:6, URG:1, ACK:1, PSH:1, RST:1, SYN:1, FIN:1, Window:16,
-      Checksum:16, UrgentPointer:16, Options:OptLen/bytes, 0:OptPadLen/unit:8,
-      Rest/bytes>>;
+      Checksum:16, UrgentPointer:16, OptionsWithPad/bytes, Rest/bytes>>;
 encode({bin, Bin}, _Stack, Rest, _Opts) ->
     <<Bin/bytes, Rest/bytes>>;
 encode(Bin, _Stack, Rest, _Opts) when is_binary(Bin) ->
     <<Bin/bytes, Rest/bytes>>.
+
+fill_md5sig(OptionsBin, Options, Ip, Phdr, Hdr, Rest, Opts) ->
+    case lists:keyfind(md5, 1, Options) of
+        false ->
+            OptionsBin;
+        _ ->
+            Key = lookup_key(Ip, md5, Opts),
+            Sig = md5(<<Phdr/bytes, Hdr/bytes, Rest/bytes, Key/bytes>>),
+            Options2 = lists:keyreplace(md5, 1, Options, {md5, Sig}),
+            encode_tcp_option(Options2)
+    end.
+
+check_md5sig(Options, Ip, Phdr, Hdr, Rest, Opts) ->
+    case lists:keyfind(md5, 1, Options) of
+        false ->
+            Options;
+        {md5, Sig2} ->
+            Key = lookup_key(Ip, md5, Opts),
+            SigOk = case md5(<<Phdr/bytes, Hdr/bytes, Rest/bytes,
+                               Key/bytes>>) of
+                Sig2 -> good;
+                _ -> bad
+            end,
+            lists:keyreplace(md5, 1, Options, {md5, SigOk})
+    end.
+
+lookup_key(_Ip, md5, _Opts) ->
+    <<"hoge">>.  % XXX dummy impl
 
 encode_icmpv6(Bin) when is_binary(Bin) ->
     Bin;
@@ -532,7 +571,13 @@ encode_tcp_option({wscale, Val}, Rest, Acc) ->
 encode_tcp_option(sack_permitted, Rest, Acc) ->
     encode_tcp_option(sack_permitted, 0, 0, Rest, Acc);
 encode_tcp_option({timestamp, TSval, TSecr}, Rest, Acc) ->
-    encode_tcp_option(timestamp, 8, <<TSval:32, TSecr:32>>, Rest, Acc).
+    encode_tcp_option(timestamp, 8, <<TSval:32, TSecr:32>>, Rest, Acc);
+encode_tcp_option({md5, Atom}, Rest, Acc) when is_atom(Atom) ->
+    % encode(tcp) encodes options without having a signature to know
+    % the size of tcp options.  put a dummy value with the correct size.
+    encode_tcp_option(md5, 16, <<0:128>>, Rest, Acc);
+encode_tcp_option({Kind, Val}, Rest, Acc) ->
+    encode_tcp_option(Kind, byte_size(Val), Val, Rest, Acc).
 
 encode_tcp_option(Kind, ValLen, Val, Rest, Acc) when is_binary(Val) ->
     KindInt = to_int(tcp_option, Kind),
@@ -561,6 +606,9 @@ checksum_fold(Sum) when Sum =< 16#ffff ->
     16#ffff - Sum;
 checksum_fold(Sum) ->
     checksum_fold((Sum band 16#ffff) + (Sum bsr 16)).
+
+md5(Bin) ->
+    crypto:hash(md5, Bin).
 
 to_int(Type, Enum) ->
     try

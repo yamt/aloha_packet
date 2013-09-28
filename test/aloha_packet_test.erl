@@ -90,6 +90,25 @@ tcp_term2() ->
                      noop,noop,noop,noop,
                      {timestamp,1,0}]}].
 
+tcp_md5_bin() ->
+    <<0,3,71,140,161,179,142,17,145,26,179,75,8,0,69,0,0,65,0,0,64,0,64,6,182,173,192,0,2,8,192,0,2,1,225,65,39,15,87,68,200,6,0,0,0,65,160,24,131,44,12,7,0,0,19,18,3,163,146,39,14,57,168,206,167,120,139,57,82,15,101,128,0,0,104,101,104,13,10>>.
+
+tcp_md5_term() ->
+    [#ether{dst = <<0,3,71,140,161,179>>,
+            src = <<142,17,145,26,179,75>>,
+            type = ip},
+     #ip{version = 4,ihl = 5,tos = 0,total_length = 65,id = 0,
+         df = 1,mf = 0,offset = 0,ttl = 64,protocol = tcp,
+         checksum = good,
+         src = <<192,0,2,8>>,
+         dst = <<192,0,2,1>>,
+         options = <<>>},
+     #tcp{src_port = 57665,dst_port = 9999,seqno = 1464125446,
+          ackno = 65,data_offset = 10,urg = 0,ack = 1,psh = 1,rst = 0,
+          syn = 0,fin = 0,window = 33580,checksum = good,
+          urgent_pointer = 0,options = [{md5, good},eol]},
+     {bin,<<"heh\r\n">>}].
+
 icmpv6_bin() ->
     <<51,51,0,0,0,1,142,17,145,26,179,75,134,221,96,0,0,0,0,16,58,64,254,128,0,0,0,0,0,0,240,11,164,255,254,89,204,18,255,2,0,0,0,0,0,0,0,0,0,0,0,0,0,1,128,0,143,163,121,176,0,0,81,252,207,28,0,1,248,73>>.
 
@@ -317,6 +336,13 @@ tcp3_decode_test() ->
 
 tcp3_encode_test() ->
     ?assertEqual(tcp_bin3(), aloha_packet:encode_packet(tcp_term3())).
+
+tcp_md5_decode_test() ->
+    io:format("~p", [aloha_packet:decode_packet(tcp_md5_bin())]),
+    ?assertEqual(tcp_md5_term(), aloha_packet:decode_packet(tcp_md5_bin())).
+
+tcp_md5_encode_test() ->
+    ?assertEqual(tcp_md5_bin(), aloha_packet:encode_packet(tcp_md5_term())).
 
 arp_decode_test() ->
     ?assertEqual(arp_term(), aloha_packet:decode_packet(arp_bin())).
