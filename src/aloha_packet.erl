@@ -493,7 +493,7 @@ fill_md5sig(OptionsBin, Options, Ip, Phdr, Hdr, Rest, Opts) ->
         false ->
             OptionsBin;
         _ ->
-            Key = lookup_key(Ip, md5, Opts),
+            Key = lookup_key(Ip, encode, md5, Opts),
             Sig = md5(<<Phdr/bytes, Hdr/bytes, Rest/bytes, Key/bytes>>),
             Options2 = lists:keyreplace(md5, 1, Options, {md5, Sig}),
             encode_tcp_option(Options2)
@@ -504,7 +504,7 @@ check_md5sig(Options, Ip, Phdr, Hdr, Rest, Opts) ->
         false ->
             Options;
         {md5, Sig2} ->
-            Key = lookup_key(Ip, md5, Opts),
+            Key = lookup_key(Ip, decode, md5, Opts),
             SigOk = case md5(<<Phdr/bytes, Hdr/bytes, Rest/bytes,
                                Key/bytes>>) of
                 Sig2 -> good;
@@ -513,12 +513,12 @@ check_md5sig(Options, Ip, Phdr, Hdr, Rest, Opts) ->
             lists:keyreplace(md5, 1, Options, {md5, SigOk})
     end.
 
-lookup_key(Ip, md5, Opts) ->
+lookup_key(Ip, Direction, md5, Opts) ->
     case proplists:get_value(lookup_key, Opts) of
         undefined ->
             error(badarg);  % no key
         {M,F,A} ->
-            apply(M, F, [Ip|A])
+            apply(M, F, [Ip, Direction|A])
     end.
 
 encode_icmpv6(Bin) when is_binary(Bin) ->

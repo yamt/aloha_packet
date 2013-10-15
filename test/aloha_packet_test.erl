@@ -24,7 +24,7 @@
 
 -module(aloha_packet_test).
 
--export([lookup_key/1]).
+-export([lookup_key/2]).
 
 -include("aloha_packet.hrl").
 
@@ -339,7 +339,9 @@ tcp3_decode_test() ->
 tcp3_encode_test() ->
     ?assertEqual(tcp_bin3(), aloha_packet:encode_packet(tcp_term3())).
 
-lookup_key(_Ip) ->
+lookup_key(#ip{dst = <<192,0,2,1>>}, encode) ->
+    <<"hoge">>;
+lookup_key(#ip{src = <<192,0,2,8>>}, decode) ->
     <<"hoge">>.
 
 tcp_md5_decode_test() ->
