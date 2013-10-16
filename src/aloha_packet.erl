@@ -613,7 +613,11 @@ checksum_fold(Sum) ->
     checksum_fold((Sum band 16#ffff) + (Sum bsr 16)).
 
 md5(Bin) ->
-    crypto:hash(md5, Bin).
+    try crypto:hash(md5, Bin)
+    catch
+        error:undef ->
+            crypto:md5(Bin)  % for older OTP versions
+    end.
 
 to_int(Type, Enum) ->
     try
